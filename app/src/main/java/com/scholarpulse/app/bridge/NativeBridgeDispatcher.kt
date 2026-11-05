@@ -12,6 +12,7 @@ import android.webkit.WebView
 import androidx.core.app.NotificationManagerCompat
 import androidx.webkit.JavaScriptReplyProxy
 import com.scholarpulse.app.BuildConfig
+import com.scholarpulse.app.MainActivity
 import com.scholarpulse.app.audio.NativeAudioEngine
 import com.scholarpulse.app.audio.NativeHapticsEngine
 import com.scholarpulse.app.auth.CookieSessionManager
@@ -224,7 +225,11 @@ class NativeBridgeDispatcher(
             putExtra(TimerForegroundService.EXTRA_IDEMPOTENCY_KEY, params.idempotencyKey)
         }
 
+        // Request runtime notification permission on Android 13+ if not already granted
+        (activityProvider?.invoke() as? MainActivity)?.requestNotificationPermissionIfNeeded()
+
         try {
+            Log.i(tag, "Starting TimerForegroundService: mode=${params.mode}, duration=${params.targetDurationSeconds}s, topic=${params.topic}")
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(serviceIntent)
             } else {

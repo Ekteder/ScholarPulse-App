@@ -1,13 +1,16 @@
 package com.scholarpulse.app
 
+import android.Manifest
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.View
 import android.view.WindowManager
 import android.view.animation.AccelerateDecelerateInterpolator
@@ -15,11 +18,13 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.animation.doOnEnd
+import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
@@ -38,6 +43,24 @@ class MainActivity : ComponentActivity() {
     private var isWebReady by mutableStateOf(false)
     private var explicitThemeDark by mutableStateOf<Boolean?>(null)
     private lateinit var bridgeDispatcher: NativeBridgeDispatcher
+
+    private val requestNotificationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            Log.d("MainActivity", "POST_NOTIFICATIONS permission granted: $isGranted")
+        }
+
+    fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                Log.d("MainActivity", "Requesting POST_NOTIFICATIONS runtime permission")
+                requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // 1. Install Android 12+ Splash Screen before super.onCreate()
@@ -112,7 +135,10 @@ class MainActivity : ComponentActivity() {
         // 8. Handle initial launch intent (e.g. notification deep link)
         handleNotificationIntent(intent)
 
-        // 9. Render Jetpack Compose Root Container
+        // 9. Prompt for Android 13+ runtime notification permissions
+        requestNotificationPermissionIfNeeded()
+
+        // 10. Render Jetpack Compose Root Container
         setContent {
             val systemDark = isSystemInDarkTheme()
             val effectiveDark = explicitThemeDark ?: systemDark

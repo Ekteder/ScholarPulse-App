@@ -340,8 +340,6 @@ class TimerForegroundService : Service() {
         // Check if Pomodoro interval has elapsed
         if (mode == TimerMode.POMODORO && elapsed >= targetDurationSeconds) {
             handlePomodoroPhaseCompleted()
-        } else {
-            updateNotification()
         }
 
         dispatchTickEvent()
@@ -483,30 +481,28 @@ class TimerForegroundService : Service() {
         val elapsed = getElapsedSeconds()
         val remaining = getRemainingSeconds()
 
-        val title = when (mode) {
-            TimerMode.STOPWATCH -> "Stopwatch (${formatDuration(elapsed)})"
-            TimerMode.POMODORO -> {
-                when (phase) {
-                    PomodoroPhase.FOCUS -> "Focus Session (${formatDuration(remaining)})"
-                    PomodoroPhase.SHORT_BREAK -> "Short Break (${formatDuration(remaining)})"
-                    PomodoroPhase.LONG_BREAK -> "Long Break (${formatDuration(remaining)})"
-                }
-            }
+        val isRunning = (status == TimerStatus.RUNNING || status == TimerStatus.BREAK)
+        val isPaused = (status == TimerStatus.PAUSED)
+
+        val subjectHeader = if (subjectName.isNotBlank()) subjectName else "ScholarPulse"
+        val topicBody = if (topic.isNotBlank()) topic else "Study Session"
+
+        val subText = when {
+            mode == TimerMode.POMODORO && phase == PomodoroPhase.FOCUS -> "Pomodoro #${completedPomodoros + 1}"
+            mode == TimerMode.POMODORO -> "Break"
+            else -> "Stopwatch"
         }
 
-        val contentText = if (subjectName.isNotBlank() && topic.isNotBlank()) {
-            "$subjectName — $topic"
-        } else if (topic.isNotBlank()) {
-            topic
-        } else {
-            "Academic Study Session"
+        val title = when {
+            isPaused -> "Paused (${formatDuration(elapsed)}) • $subjectHeader"
+            mode == TimerMode.STOPWATCH -> "Stopwatch • $subjectHeader"
+            phase == PomodoroPhase.FOCUS -> "Focus: $subjectHeader"
+            phase == PomodoroPhase.SHORT_BREAK -> "Short Break • $subjectHeader"
+            phase == PomodoroPhase.LONG_BREAK -> "Long Break • $subjectHeader"
+            else -> subjectHeader
         }
 
-        val subText = if (mode == TimerMode.POMODORO) {
-            "Pomodoro #${completedPomodoros + 1}"
-        } else {
-            "Stopwatch"
-        }
+        val contentText = topicBody
 
         // Tapping notification body launches MainActivity directly to timer tab
         val openAppIntent = Intent(this, MainActivity::class.java).apply {
@@ -528,11 +524,36 @@ class TimerForegroundService : Service() {
             .setContentText(contentText)
             .setSubText(subText)
             .setContentIntent(contentPendingIntent)
-            .setOngoing(status == TimerStatus.RUNNING || status == TimerStatus.BREAK)
+            .setOngoing(isRunning)
             .setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_STOPWATCH)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+
+        // Live chronometer ticking on status bar and lock screen
+        if (isRunning) {
+            builder.setShowWhen(true)
+            builder.setUsesChronometer(true)
+            if (mode == TimerMode.POMODORO) {
+                // Countdown down to target completion
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    builder.setChronometerCountDown(true)
+                }
+                // Target epoch time when the remaining duration reaches 0
+                val targetEndMs = System.currentTimeMillis() + (remaining * 1000L)
+                builder.setWhen(targetEndMs)
+            } else {
+                // Stopwatch: count UP from elapsed start point
+                builder.setChronometerCountDown(false)
+                val startBaseMs = System.currentTimeMillis() - (elapsed * 1000L)
+                builder.setWhen(startBaseMs)
+            }
+        } else {
+            // When paused: freeze chronometer
+            builder.setUsesChronometer(false)
+            builder.setShowWhen(false)
+        }
 
         // Action Buttons with PendingIntents sent to TimerActionReceiver
         when (status) {
@@ -544,7 +565,7 @@ class TimerForegroundService : Service() {
                 )
                 builder.addAction(
                     R.drawable.ic_splash_logo,
-                    "Finish",
+                    "Finish & Save",
                     createActionPendingIntent(ACTION_FINISH, 102)
                 )
             }
@@ -556,7 +577,7 @@ class TimerForegroundService : Service() {
                 )
                 builder.addAction(
                     R.drawable.ic_splash_logo,
-                    "Stop",
+                    "Finish & Save",
                     createActionPendingIntent(ACTION_FINISH, 104)
                 )
             }
@@ -568,8 +589,13 @@ class TimerForegroundService : Service() {
                 )
                 builder.addAction(
                     R.drawable.ic_splash_logo,
+                    "Finish & Save",
+                    createActionPendingIntent(ACTION_FINISH, 106)
+                )
+                builder.addAction(
+                    R.drawable.ic_splash_logo,
                     "Discard",
-                    createActionPendingIntent(ACTION_DISCARD, 106)
+                    createActionPendingIntent(ACTION_DISCARD, 107)
                 )
             }
             TimerStatus.IDLE -> {}

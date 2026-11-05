@@ -34,6 +34,7 @@ class ScholarPulseApp : Application() {
             ).apply {
                 description = "Ongoing notification for active Pomodoro and stopwatch study sessions"
                 setShowBadge(false)
+                lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
             }
 
             val timerLegacyChannel = NotificationChannel(
