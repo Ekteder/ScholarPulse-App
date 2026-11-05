@@ -21,13 +21,17 @@
 
 ### Active Phase & Resume Pointer
 - **Current Active Phase**: **Live Background Study Notification & Cross-Device Sync — `[x] FULLY IMPLEMENTED & VERIFIED`**
-- **Current Active Task**: Live hardware Chronometer study timer notification with mini-player layout and real-time Web ↔ Android sync verified on connected hardware.
+- **Current Active Task**: Hardware Chronometer study timer notification with mini-player layout and bidirectional Web ↔ Android sync verified with zero jitter.
 - **Milestones Verified**:
   1. **Custom Mini-Player Live Notification**: Single unified notification card matching the bottom floating study bar. Rounded blue stopwatch squircle, bold ticking Chronometer (`24:34`), clean subject header without cut-off text, amber Pause `[ || ]` and emerald green Stop `[ ⏹ ]` buttons, and transparent monochrome app silhouette status icon (`ic_stat_scholarpulse`).
-  2. **Cross-Device Web ↔ Android Synchronization**: Web Next.js `TimerContext.tsx` reconciliation hook (commit `9e9b771`) and Android `NativeBridgeDispatcher.kt` bridge handlers verified. Live timer changes on desktop/web (start, pause, resume, finish) update or dismiss the native Android notification instantly without manual app interaction.
+  2. **Bidirectional Web ↔ Android Synchronization**:
+     - Web Next.js `TimerContext.tsx` and Android `NativeBridgeDispatcher.kt` bridge handlers fully aligned.
+     - Web passes `accumulatedSeconds: currentElapsed` and `phase` on start/reconcile (`commit 5d31cb7`), ensuring the phone notification immediately adopts the exact remaining time from the web instead of resetting to 0.
+     - Android `TimerForegroundService.kt` prevents running timer reset on re-render (`commit 536929d`).
+     - Web passes `discard: true` on session save/clear (`commit a0b44ef`), preventing duplicate Room offline queue records and eliminating ghost timer conflicts.
   3. **Repository Status**: Both repos pushed and clean:
-     - Android: `https://github.com/Ekteder/ScholarPulse-App.git` (`main` branch)
-     - Web: `https://github.com/Ekteder/scholarpulsev2.git` (`main` branch)
+     - Android: `https://github.com/Ekteder/ScholarPulse-App.git` (`main` branch, commit `536929d`)
+     - Web: `https://github.com/Ekteder/scholarpulsev2.git` (`main` branch, commit `5d31cb7`)
 - **Blocker Status**: None. Background live notification and cross-device sync 100% operational.
 
 ---
