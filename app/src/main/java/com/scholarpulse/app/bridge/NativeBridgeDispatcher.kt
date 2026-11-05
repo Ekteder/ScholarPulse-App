@@ -223,6 +223,8 @@ class NativeBridgeDispatcher(
             putExtra(TimerForegroundService.EXTRA_MODE, params.mode)
             putExtra(TimerForegroundService.EXTRA_TARGET_DURATION, params.targetDurationSeconds.toLong())
             putExtra(TimerForegroundService.EXTRA_IDEMPOTENCY_KEY, params.idempotencyKey)
+            putExtra(TimerForegroundService.EXTRA_ACCUMULATED_SECONDS, params.accumulatedSeconds)
+            putExtra(TimerForegroundService.EXTRA_PHASE, params.phase)
         }
 
         // Request runtime notification permission on Android 13+ if not already granted

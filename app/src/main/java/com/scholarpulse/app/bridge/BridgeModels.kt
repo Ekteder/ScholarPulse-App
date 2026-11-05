@@ -71,7 +71,9 @@ data class StartTimerParams(
     val notes: String? = null,
     val mode: String = "pomodoro",
     val targetDurationSeconds: Int = 1500,
-    val idempotencyKey: String = ""
+    val idempotencyKey: String = "",
+    val accumulatedSeconds: Long = 0L,
+    val phase: String = "focus"
 )
 
 @Serializable

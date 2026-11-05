@@ -97,6 +97,8 @@ class TimerForegroundService : Service() {
         const val EXTRA_MODE = "extra_mode"
         const val EXTRA_TARGET_DURATION = "extra_target_duration"
         const val EXTRA_IDEMPOTENCY_KEY = "extra_idempotency_key"
+        const val EXTRA_ACCUMULATED_SECONDS = "extra_accumulated_seconds"
+        const val EXTRA_PHASE = "extra_phase"
 
         // Global singleton pointers for direct IPC and status inspection
         @Volatile
@@ -193,11 +195,24 @@ class TimerForegroundService : Service() {
         val nowMs = System.currentTimeMillis()
         val nowIso = Instant.ofEpochMilli(nowMs).toString()
 
+        val newIdempotencyKey = intent?.getStringExtra(EXTRA_IDEMPOTENCY_KEY) ?: "timer_$nowMs"
+        val passedAccumulated = intent?.getLongExtra(EXTRA_ACCUMULATED_SECONDS, 0L) ?: 0L
+        val passedPhase = intent?.getStringExtra(EXTRA_PHASE) ?: "focus"
+
+        // If the service is already actively running this exact timer session, do NOT reset the clock to 0!
+        if (status == TimerStatus.RUNNING && idempotencyKey == newIdempotencyKey && idempotencyKey.isNotBlank()) {
+            Log.d(TAG, "Timer is already actively running for idempotencyKey=$newIdempotencyKey. Updating metadata without resetting clock.")
+            subjectName = intent?.getStringExtra(EXTRA_SUBJECT_NAME)?.ifBlank { subjectName } ?: subjectName
+            topic = intent?.getStringExtra(EXTRA_TOPIC)?.ifBlank { topic } ?: topic
+            updateNotification()
+            return
+        }
+
         subjectId = intent?.getStringExtra(EXTRA_SUBJECT_ID) ?: ""
         subjectName = intent?.getStringExtra(EXTRA_SUBJECT_NAME) ?: ""
         topic = intent?.getStringExtra(EXTRA_TOPIC)?.ifBlank { "Focused Study" } ?: "Focused Study"
         notes = intent?.getStringExtra(EXTRA_NOTES) ?: ""
-        idempotencyKey = intent?.getStringExtra(EXTRA_IDEMPOTENCY_KEY) ?: "timer_$nowMs"
+        idempotencyKey = newIdempotencyKey
 
         val modeStr = intent?.getStringExtra(EXTRA_MODE) ?: "pomodoro"
         mode = if (modeStr.equals("stopwatch", ignoreCase = true)) {
@@ -210,11 +225,15 @@ class TimerForegroundService : Service() {
         targetDurationSeconds = if (targetDuration > 0) targetDuration else (25 * 60L)
         defaultFocusDurationSeconds = targetDurationSeconds
 
-        phase = PomodoroPhase.FOCUS
-        previousPhase = PomodoroPhase.FOCUS
-        status = TimerStatus.RUNNING
+        phase = when (passedPhase.lowercase()) {
+            "short_break" -> PomodoroPhase.SHORT_BREAK
+            "long_break" -> PomodoroPhase.LONG_BREAK
+            else -> PomodoroPhase.FOCUS
+        }
+        previousPhase = phase
+        status = if (phase == PomodoroPhase.FOCUS) TimerStatus.RUNNING else TimerStatus.BREAK
         completedPomodoros = 0
-        accumulatedSeconds = 0L
+        accumulatedSeconds = maxOf(0L, passedAccumulated)
         lastResumedAtMs = nowMs
         startedAtIso = nowIso
         lastResumedAtIso = nowIso
