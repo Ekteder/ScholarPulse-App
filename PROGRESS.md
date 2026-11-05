@@ -20,13 +20,15 @@
 > 5. **Update this file at every milestone**: The Main Agent edits this file as each task or phase concludes, logging exact test results and file diffs.
 
 ### Active Phase & Resume Pointer
-- **Current Active Phase**: **Native Google Sign-In Bugfix & Debug APK Deployment — `[x] COMPILED & READY FOR TESTING`**
-- **Current Active Task**: Google Sign-In & Dashboard Load Fully Verified on Samsung Galaxy A26.
-- **Root Causes Isolated & Resolved**:
-  1. **Zod Validation Error Fixed**: In `GoogleTokenExchanger.kt`, payload serialized `fcmToken: null`. Because backend Zod schema had `fcmToken: z.string().optional()`, passing `null` threw `HTTP 400 Invalid request payload`. Fixed by omitting nulls in payload JSON.
-  2. **Database Schema Missing Columns Fixed**: In Neon PostgreSQL, `notification_preferences` was missing `push_notifications_enabled`, `tasks` was missing `idempotency_key` and `version`, and `device_tokens` table was missing. When Drizzle executed `getUserWorkspaceData`, PostgreSQL threw `column does not exist`, which Next.js masked in production as `Minified React error #441 (Could Not Load Workspace)`. Added missing columns and table using non-destructive DDL on Neon DB.
-  3. **Dashboard Load Verified**: Relaunched app on Samsung Galaxy A26 (`R5CY82PDRMZ`). Logcat confirms dashboard charts mounted (`Recharts`), session loaded, and workspace rendered with 0 errors.
-- **Blocker Status**: None. Auth & Dashboard loading 100% operational.
+- **Current Active Phase**: **Live Background Study Notification & Cross-Device Sync — `[x] FULLY IMPLEMENTED & VERIFIED`**
+- **Current Active Task**: Live hardware Chronometer study timer notification with mini-player layout and real-time Web ↔ Android sync verified on connected hardware.
+- **Milestones Verified**:
+  1. **Custom Mini-Player Live Notification**: Single unified notification card matching the bottom floating study bar. Rounded blue stopwatch squircle, bold ticking Chronometer (`24:34`), clean subject header without cut-off text, amber Pause `[ || ]` and emerald green Stop `[ ⏹ ]` buttons, and transparent monochrome app silhouette status icon (`ic_stat_scholarpulse`).
+  2. **Cross-Device Web ↔ Android Synchronization**: Web Next.js `TimerContext.tsx` reconciliation hook (commit `9e9b771`) and Android `NativeBridgeDispatcher.kt` bridge handlers verified. Live timer changes on desktop/web (start, pause, resume, finish) update or dismiss the native Android notification instantly without manual app interaction.
+  3. **Repository Status**: Both repos pushed and clean:
+     - Android: `https://github.com/Ekteder/ScholarPulse-App.git` (`main` branch)
+     - Web: `https://github.com/Ekteder/scholarpulsev2.git` (`main` branch)
+- **Blocker Status**: None. Background live notification and cross-device sync 100% operational.
 
 ---
 
