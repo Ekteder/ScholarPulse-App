@@ -97,6 +97,7 @@ class MainActivity : ComponentActivity() {
             }
             onThemeChange = { isDark ->
                 runOnUiThread {
+                    Log.i("MainActivity", "onThemeChange: updating explicitThemeDark=$isDark")
                     explicitThemeDark = isDark
                     syncSystemBars(isDark)
                 }
@@ -197,10 +198,24 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun syncSystemBars(isDark: Boolean) {
+        val barColor = if (isDark) 0xFF0F172A.toInt() else 0xFFFFFFFF.toInt()
+        val style = if (isDark) {
+            SystemBarStyle.dark(barColor)
+        } else {
+            SystemBarStyle.light(barColor, barColor)
+        }
+        enableEdgeToEdge(
+            statusBarStyle = style,
+            navigationBarStyle = style
+        )
+
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         // Status bar: true = dark icons (light theme), false = light icons (dark theme)
         windowInsetsController.isAppearanceLightStatusBars = !isDark
         // Navigation bar: true = dark icons/pill (light theme), false = light icons/pill (dark theme)
         windowInsetsController.isAppearanceLightNavigationBars = !isDark
+
+        window.statusBarColor = barColor
+        window.navigationBarColor = barColor
     }
 }

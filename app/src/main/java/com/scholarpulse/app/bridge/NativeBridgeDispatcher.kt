@@ -854,8 +854,11 @@ class NativeBridgeDispatcher(
             "system"
         }
 
+        Log.i(tag, "handleUpdateTheme received request: themeParam=$themeParam")
+
         mainHandler.post {
             val isDark = themeParam == "dark"
+            Log.i(tag, "Posting onThemeChange isDark=$isDark")
             onThemeChange?.invoke(isDark)
         }
 

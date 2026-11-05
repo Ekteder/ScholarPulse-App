@@ -1,5 +1,6 @@
 package com.scholarpulse.app.bridge
 
+import android.util.Log
 import android.webkit.JavascriptInterface
 
 class FallbackJavaScriptInterface(
@@ -10,5 +11,14 @@ class FallbackJavaScriptInterface(
     fun postMessage(messageJson: String) {
         val currentOrigin = getCurrentOrigin()
         dispatcher.handleRawMessage(messageJson, currentOrigin, null)
+    }
+
+    @JavascriptInterface
+    fun updateTheme(theme: String) {
+        Log.i("FallbackBridge", "updateTheme called with theme=$theme")
+        val isDark = theme.equals("dark", ignoreCase = true)
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            dispatcher.onThemeChange?.invoke(isDark)
+        }
     }
 }

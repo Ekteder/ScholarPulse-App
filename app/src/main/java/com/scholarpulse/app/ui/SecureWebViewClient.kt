@@ -94,13 +94,41 @@ class SecureWebViewClient(
 
     override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
         super.onPageStarted(view, url, favicon)
-        // Inject native shell detection flags as early as possible
+        // Inject native shell detection flags and theme mutation observer as early as possible
         view.evaluateJavascript(
             """
             (function() {
                 window.__IS_NATIVE_SHELL__ = true;
                 if (!window.ScholarPulseBridge) {
                     window.ScholarPulseBridge = window.nativeBridge || window.__ScholarPulseNativeBridge;
+                }
+
+                function syncTheme() {
+                    var isDark = document.documentElement.classList.contains('dark');
+                    var bridge = window.ScholarPulseBridge || window.nativeBridge || window.__ScholarPulseNativeBridge;
+                    if (bridge && typeof bridge.postMessage === 'function') {
+                        bridge.postMessage(JSON.stringify({
+                            jsonrpc: "2.0",
+                            id: "theme_sync_" + Date.now(),
+                            method: "system.updateTheme",
+                            params: { theme: isDark ? "dark" : "light" }
+                        }));
+                    }
+                }
+
+                syncTheme();
+
+                if (!window.__sp_theme_observer_attached__) {
+                    window.__sp_theme_observer_attached__ = true;
+                    var observer = new MutationObserver(function(mutations) {
+                        for (var i = 0; i < mutations.length; i++) {
+                            if (mutations[i].attributeName === 'class') {
+                                syncTheme();
+                                break;
+                            }
+                        }
+                    });
+                    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
                 }
             })();
             """.trimIndent(),
@@ -116,7 +144,7 @@ class SecureWebViewClient(
         val leftDp = insets?.left ?: 0
         val rightDp = insets?.right ?: 0
 
-        // Inject safe area CSS and suppress redundant PWA install prompt in native shell
+        // Inject safe area CSS, suppress redundant PWA install prompt, and attach live theme observer
         view.evaluateJavascript(
             """
             (function() {
@@ -141,6 +169,31 @@ class SecureWebViewClient(
                         display: none !important;
                     }
                 `;
+
+                function reportTheme() {
+                    try {
+                        var isDark = document.documentElement.classList.contains('dark');
+                        var bridge = window.__ScholarPulseNativeBridge || window.ScholarPulseBridge;
+                        if (bridge && typeof bridge.updateTheme === 'function') {
+                            bridge.updateTheme(isDark ? 'dark' : 'light');
+                        }
+                    } catch (e) {
+                        console.warn('[NativeBridge] Failed to report theme:', e);
+                    }
+                }
+
+                reportTheme();
+
+                if (!window.__sp_theme_observer_attached__) {
+                    window.__sp_theme_observer_attached__ = true;
+                    var observer = new MutationObserver(function() {
+                        reportTheme();
+                    });
+                    observer.observe(document.documentElement, {
+                        attributes: true,
+                        attributeFilter: ['class']
+                    });
+                }
             })();
             """.trimIndent(),
             null
