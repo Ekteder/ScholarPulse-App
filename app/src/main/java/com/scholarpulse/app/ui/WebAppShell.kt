@@ -16,8 +16,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -91,10 +93,14 @@ fun WebAppShell(
         webViewInstance?.setBackgroundColor(nativeBgColor)
     }
 
+    val topInsetBg = if (isDarkTheme) Slate900 else androidx.compose.ui.graphics.Color.White
+
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(if (isDarkTheme) Slate950 else Slate50)
+            .background(topInsetBg)
+            .statusBarsPadding()
+            .navigationBarsPadding()
     ) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
@@ -195,6 +201,26 @@ fun WebAppShell(
                                     root.style.setProperty('--sar', '${rightDp}px');
                                     root.style.setProperty('--ime-height', '${imeDp}px');
                                 }
+                                var styleId = '__sp_native_safe_area__';
+                                var style = document.getElementById(styleId);
+                                if (!style) {
+                                    style = document.createElement('style');
+                                    style.id = styleId;
+                                    (document.head || document.documentElement).appendChild(style);
+                                }
+                                style.textContent = `
+                                    header {
+                                        padding-top: max(${topDp}px, 0.75rem) !important;
+                                    }
+                                    main {
+                                        padding-bottom: max(${bottomDp}px, 1.5rem) !important;
+                                    }
+                                    [data-pwa-install],
+                                    .pwa-install-button,
+                                    button:has(svg.lucide-download) {
+                                        display: none !important;
+                                    }
+                                `;
                             })();
                             """.trimIndent(),
                             null
@@ -205,6 +231,7 @@ fun WebAppShell(
 
                     webViewClient = SecureWebViewClient(
                         context = ctx,
+                        bridgeDispatcher = bridgeDispatcher,
                         onPageLoaded = { url ->
                             activeLoadedUrl.set(url)
                             canGoBack = canGoBack()

@@ -17,6 +17,7 @@ import com.scholarpulse.app.BuildConfig
 
 class SecureWebViewClient(
     private val context: Context,
+    private val bridgeDispatcher: com.scholarpulse.app.bridge.NativeBridgeDispatcher? = null,
     private val onPageLoaded: (url: String) -> Unit,
     private val onPageFailed: (errorCode: Int, description: String) -> Unit,
     private val onGoogleSignInRequested: (() -> Unit)? = null
@@ -109,6 +110,42 @@ class SecureWebViewClient(
 
     override fun onPageFinished(view: WebView, url: String?) {
         super.onPageFinished(view, url)
+        val insets = bridgeDispatcher?.currentInsets
+        val topDp = insets?.top ?: 36
+        val bottomDp = insets?.bottom ?: 24
+        val leftDp = insets?.left ?: 0
+        val rightDp = insets?.right ?: 0
+
+        // Inject safe area CSS and suppress redundant PWA install prompt in native shell
+        view.evaluateJavascript(
+            """
+            (function() {
+                var root = document.documentElement;
+                if (root) {
+                    root.style.setProperty('--sat', '0px');
+                    root.style.setProperty('--sab', '0px');
+                    root.style.setProperty('--sal', '0px');
+                    root.style.setProperty('--sar', '0px');
+                }
+                var styleId = '__sp_native_hide_pwa__';
+                var style = document.getElementById(styleId);
+                if (!style) {
+                    style = document.createElement('style');
+                    style.id = styleId;
+                    (document.head || document.documentElement).appendChild(style);
+                }
+                style.textContent = `
+                    [data-pwa-install],
+                    .pwa-install-button,
+                    button:has(svg.lucide-download) {
+                        display: none !important;
+                    }
+                `;
+            })();
+            """.trimIndent(),
+            null
+        )
+
         if (url != null) {
             onPageLoaded(url)
         }
