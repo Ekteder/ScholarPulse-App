@@ -522,7 +522,7 @@ class TimerForegroundService : Service() {
         )
 
         val builder = NotificationCompat.Builder(this, ScholarPulseApp.CHANNEL_ID_TIMER)
-            .setSmallIcon(R.drawable.ic_splash_logo)
+            .setSmallIcon(R.drawable.ic_stat_scholarpulse)
             .setContentTitle(title)
             .setContentText(contentText)
             .setSubText(subText)
@@ -535,7 +535,9 @@ class TimerForegroundService : Service() {
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
 
         // ---------------------------------------------------------------------
-        // Custom RemoteViews Styled Like the Floating Mini-Player Bar
+        // Custom RemoteViews Matching the Floating Mini-Player Bar
+        // Collapsed View: Subject name + Big Chronometer + Actions (no "Focus" text)
+        // Expanded View: Full details with Subject, Topic, Phase pill, and Chronometer
         // ---------------------------------------------------------------------
         val collapsedViews = RemoteViews(packageName, R.layout.notification_timer_collapsed)
         val expandedViews = RemoteViews(packageName, R.layout.notification_timer_expanded)
@@ -548,32 +550,24 @@ class TimerForegroundService : Service() {
             else -> "Study"
         }
 
-        val phasePillText = when {
-            mode == TimerMode.STOPWATCH -> "Stopwatch"
-            mode == TimerMode.POMODORO && phase == PomodoroPhase.FOCUS -> "Pomodoro #${completedPomodoros + 1}"
-            else -> "Break"
-        }
-
         val statusBadgeText = when {
             isPaused -> "PAUSED"
             phase == PomodoroPhase.FOCUS -> "FOCUSING"
             else -> "ON BREAK"
         }
 
-        // Configure Collapsed RemoteViews
+        // Configure Collapsed RemoteViews (Clean subject name, plenty of space, no truncated "Focus")
         collapsedViews.setTextViewText(R.id.notif_subject, subjectHeader)
-        collapsedViews.setTextViewText(R.id.notif_phase, phaseLabel)
         collapsedViews.setOnClickPendingIntent(R.id.notif_root, contentPendingIntent)
         collapsedViews.setOnClickPendingIntent(R.id.btn_notif_finish, createActionPendingIntent(ACTION_FINISH, 102))
 
-        // Configure Expanded RemoteViews
+        // Configure Expanded RemoteViews (Full details: Subject, Topic, Phase pill "Focus", Status badge)
         expandedViews.setTextViewText(R.id.notif_big_subject, subjectHeader)
         expandedViews.setTextViewText(R.id.notif_big_topic, topicBody)
-        expandedViews.setTextViewText(R.id.notif_big_phase_pill, phasePillText)
+        expandedViews.setTextViewText(R.id.notif_big_phase_pill, phaseLabel)
         expandedViews.setTextViewText(R.id.notif_big_status_badge, statusBadgeText)
         expandedViews.setOnClickPendingIntent(R.id.notif_big_root, contentPendingIntent)
         expandedViews.setOnClickPendingIntent(R.id.btn_big_finish, createActionPendingIntent(ACTION_FINISH, 102))
-        expandedViews.setOnClickPendingIntent(R.id.btn_big_discard, createActionPendingIntent(ACTION_DISCARD, 107))
 
         if (isRunning) {
             val isCountDown = (mode == TimerMode.POMODORO)
@@ -583,7 +577,7 @@ class TimerForegroundService : Service() {
                 SystemClock.elapsedRealtime() - (elapsed * 1000L)
             }
 
-            // Collapsed Chronometer
+            // Collapsed Live Chronometer & Actions
             collapsedViews.setViewVisibility(R.id.notif_chronometer, View.VISIBLE)
             collapsedViews.setViewVisibility(R.id.notif_paused_time, View.GONE)
             collapsedViews.setChronometer(R.id.notif_chronometer, baseElapsedRealtime, null, true)
@@ -595,7 +589,7 @@ class TimerForegroundService : Service() {
             val pauseAction = if (phase == PomodoroPhase.FOCUS) ACTION_PAUSE else ACTION_SKIP_PHASE
             collapsedViews.setOnClickPendingIntent(R.id.btn_notif_pause, createActionPendingIntent(pauseAction, 101))
 
-            // Expanded Chronometer
+            // Expanded Live Chronometer & Actions
             expandedViews.setViewVisibility(R.id.notif_big_chronometer, View.VISIBLE)
             expandedViews.setViewVisibility(R.id.notif_big_paused_time, View.GONE)
             expandedViews.setChronometer(R.id.notif_big_chronometer, baseElapsedRealtime, null, true)
@@ -604,7 +598,6 @@ class TimerForegroundService : Service() {
             }
             expandedViews.setViewVisibility(R.id.btn_big_pause, View.VISIBLE)
             expandedViews.setViewVisibility(R.id.btn_big_resume, View.GONE)
-            expandedViews.setViewVisibility(R.id.btn_big_discard, View.GONE)
             expandedViews.setOnClickPendingIntent(R.id.btn_big_pause, createActionPendingIntent(pauseAction, 101))
 
             // System header fallback when ticking
@@ -638,7 +631,6 @@ class TimerForegroundService : Service() {
             expandedViews.setTextViewText(R.id.notif_big_paused_time, pausedFormatted)
             expandedViews.setViewVisibility(R.id.btn_big_pause, View.GONE)
             expandedViews.setViewVisibility(R.id.btn_big_resume, View.VISIBLE)
-            expandedViews.setViewVisibility(R.id.btn_big_discard, View.VISIBLE)
             expandedViews.setOnClickPendingIntent(R.id.btn_big_resume, createActionPendingIntent(ACTION_RESUME, 105))
 
             // System header fallback when paused
@@ -646,56 +638,10 @@ class TimerForegroundService : Service() {
             builder.setShowWhen(false)
         }
 
-        // Apply DecoratedCustomViewStyle for seamless OS theming with our custom views
+        // Apply DecoratedCustomViewStyle with custom collapsed & expanded views
         builder.setStyle(NotificationCompat.DecoratedCustomViewStyle())
             .setCustomContentView(collapsedViews)
             .setCustomBigContentView(expandedViews)
-
-        // Standard action button fallbacks (for lockscreen / wear devices)
-        when (status) {
-            TimerStatus.RUNNING -> {
-                builder.addAction(
-                    R.drawable.ic_splash_logo,
-                    "Pause",
-                    createActionPendingIntent(ACTION_PAUSE, 101)
-                )
-                builder.addAction(
-                    R.drawable.ic_splash_logo,
-                    "Finish & Save",
-                    createActionPendingIntent(ACTION_FINISH, 102)
-                )
-            }
-            TimerStatus.BREAK -> {
-                builder.addAction(
-                    R.drawable.ic_splash_logo,
-                    "Skip Break",
-                    createActionPendingIntent(ACTION_SKIP_PHASE, 103)
-                )
-                builder.addAction(
-                    R.drawable.ic_splash_logo,
-                    "Finish & Save",
-                    createActionPendingIntent(ACTION_FINISH, 104)
-                )
-            }
-            TimerStatus.PAUSED -> {
-                builder.addAction(
-                    R.drawable.ic_splash_logo,
-                    "Resume",
-                    createActionPendingIntent(ACTION_RESUME, 105)
-                )
-                builder.addAction(
-                    R.drawable.ic_splash_logo,
-                    "Finish & Save",
-                    createActionPendingIntent(ACTION_FINISH, 106)
-                )
-                builder.addAction(
-                    R.drawable.ic_splash_logo,
-                    "Discard",
-                    createActionPendingIntent(ACTION_DISCARD, 107)
-                )
-            }
-            TimerStatus.IDLE -> {}
-        }
 
         return builder.build()
     }

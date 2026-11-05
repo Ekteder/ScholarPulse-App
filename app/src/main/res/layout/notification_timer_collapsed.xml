@@ -5,124 +5,105 @@
     android:layout_height="wrap_content"
     android:orientation="horizontal"
     android:gravity="center_vertical"
-    android:background="#0F172A"
-    android:paddingStart="12dp"
-    android:paddingEnd="12dp"
-    android:paddingTop="8dp"
-    android:paddingBottom="8dp">
+    android:background="@android:color/transparent"
+    android:paddingStart="4dp"
+    android:paddingEnd="4dp"
+    android:paddingTop="6dp"
+    android:paddingBottom="6dp">
 
-    <!-- Left: Circular Blue Timer Icon -->
+    <!-- Left: Rounded Blue Squircle Timer Icon (44dp x 44dp) -->
     <ImageView
         android:id="@+id/notif_icon"
-        android:layout_width="38dp"
-        android:layout_height="38dp"
-        android:src="@drawable/ic_notif_timer"
-        android:contentDescription="Study Timer" />
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:src="@drawable/ic_notif_timer_squircle"
+        android:contentDescription="ScholarPulse Timer" />
 
-    <!-- Center: Subject/Phase & Big Countdown Chronometer -->
+    <!-- Center: Subject & Large Live Countdown Chronometer -->
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
         android:orientation="vertical"
         android:layout_marginStart="12dp"
-        android:layout_marginEnd="8dp">
+        android:layout_marginEnd="12dp"
+        android:gravity="center_vertical">
 
-        <LinearLayout
-            android:layout_width="wrap_content"
+        <!-- Subject Name (Clean, full width, no truncation) -->
+        <TextView
+            android:id="@+id/notif_subject"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:text="ScholarPulse"
+            android:textColor="#F1F5F9"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:ellipsize="end" />
 
-            <TextView
-                android:id="@+id/notif_subject"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Physics"
-                android:textColor="#E2E8F0"
-                android:textSize="13sp"
-                android:textStyle="bold"
-                android:maxLines="1"
-                android:ellipsize="end" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text=" · "
-                android:textColor="#64748B"
-                android:textSize="13sp" />
-
-            <TextView
-                android:id="@+id/notif_phase"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Focus"
-                android:textColor="#38BDF8"
-                android:textSize="12sp"
-                android:maxLines="1" />
-        </LinearLayout>
-
-        <!-- Live Chronometer: Big, bold digits -->
+        <!-- Big Bold Live Countdown Chronometer -->
         <Chronometer
             android:id="@+id/notif_chronometer"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textColor="#FFFFFF"
-            android:textSize="22sp"
-            android:textStyle="bold" />
+            android:textSize="26sp"
+            android:textStyle="bold"
+            android:includeFontPadding="false" />
 
         <!-- Paused Text (Visible only when paused) -->
         <TextView
             android:id="@+id/notif_paused_time"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="24:45 (Paused)"
+            android:text="24:34 (Paused)"
             android:textColor="#F59E0B"
-            android:textSize="20sp"
+            android:textSize="24sp"
             android:textStyle="bold"
+            android:includeFontPadding="false"
             android:visibility="gone" />
     </LinearLayout>
 
-    <!-- Right: Mini Action Controls -->
+    <!-- Right: Action Controls [Pause ||] [Stop ⏹] -->
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical">
 
-        <!-- Pause Button -->
+        <!-- Pause Button (Amber || on dark rounded background) -->
         <ImageButton
             android:id="@+id/btn_notif_pause"
-            android:layout_width="38dp"
-            android:layout_height="38dp"
-            android:background="@drawable/bg_notif_btn"
-            android:src="@drawable/ic_notif_pause"
-            android:padding="8dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:background="@drawable/bg_notif_pause_btn"
+            android:src="@drawable/ic_notif_pause_amber"
+            android:padding="11dp"
             android:scaleType="fitCenter"
             android:contentDescription="Pause" />
 
-        <!-- Resume Button (Hidden when running) -->
+        <!-- Resume Button (Play triangle, hidden while running) -->
         <ImageButton
             android:id="@+id/btn_notif_resume"
-            android:layout_width="38dp"
-            android:layout_height="38dp"
-            android:background="@drawable/bg_notif_btn"
-            android:src="@drawable/ic_notif_play"
-            android:padding="8dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:background="@drawable/bg_notif_pause_btn"
+            android:src="@drawable/ic_notif_play_amber"
+            android:padding="11dp"
             android:scaleType="fitCenter"
             android:visibility="gone"
             android:contentDescription="Resume" />
 
-        <!-- Finish & Save Button -->
+        <!-- Stop / Finish Button (Green squircle with white square outline) -->
         <ImageButton
             android:id="@+id/btn_notif_finish"
-            android:layout_width="38dp"
-            android:layout_height="38dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
             android:layout_marginStart="8dp"
-            android:background="@drawable/bg_notif_btn"
-            android:src="@drawable/ic_notif_stop"
-            android:padding="8dp"
+            android:background="@drawable/bg_notif_stop_btn"
+            android:src="@drawable/ic_notif_stop_white"
+            android:padding="11dp"
             android:scaleType="fitCenter"
-            android:contentDescription="Finish and Save" />
+            android:contentDescription="Stop and Save" />
     </LinearLayout>
 </LinearLayout>
