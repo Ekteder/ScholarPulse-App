@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "231091454986",
+    "project_id": "scholarpulse-v2-34751",
+    "storage_bucket": "scholarpulse-v2-34751.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:231091454986:android:edf5399b4545e800778bf3",
+        "android_client_info": {
+          "package_name": "com.scholarpulse.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "231091454986-3lmp156e06n43vid16dk518v63r9tcn0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.scholarpulse.app",
+            "certificate_hash": "f6988fc96be634ed808e59563fd645ddf781a215"
+          }
+        },
+        {
+          "client_id": "231091454986-m0hi3fkhcafjjecnv5vs8lfgj7joevva.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDP9eMG11UdQ7GqxUrVlTG8ofNGa2uFj2E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "231091454986-m0hi3fkhcafjjecnv5vs8lfgj7joevva.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
