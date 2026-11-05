@@ -20,19 +20,17 @@
 > 5. **Update this file at every milestone**: The Main Agent edits this file as each task or phase concludes, logging exact test results and file diffs.
 
 ### Active Phase & Resume Pointer
-- **Current Active Phase**: **Live Background Study Notification & Cross-Device Sync — `[x] FULLY IMPLEMENTED & VERIFIED`**
-- **Current Active Task**: Hardware Chronometer study timer notification with mini-player layout and bidirectional Web ↔ Android sync verified with zero jitter.
+- **Current Active Phase**: **Native Shell Ergonomics & Edge-to-Edge Safe-Area Verification — `[x] FULLY RESOLVED & VERIFIED`**
+- **Current Active Task**: Top status bar collision, bottom gesture bar collision, and redundant PWA install button completely eliminated.
 - **Milestones Verified**:
-  1. **Custom Mini-Player Live Notification**: Single unified notification card matching the bottom floating study bar. Rounded blue stopwatch squircle, bold ticking Chronometer (`24:34`), clean subject header without cut-off text, amber Pause `[ || ]` and emerald green Stop `[ ⏹ ]` buttons, and transparent monochrome app silhouette status icon (`ic_stat_scholarpulse`).
-  2. **Bidirectional Web ↔ Android Synchronization**:
-     - Web Next.js `TimerContext.tsx` and Android `NativeBridgeDispatcher.kt` bridge handlers fully aligned.
-     - Web passes `accumulatedSeconds: currentElapsed` and `phase` on start/reconcile (`commit 5d31cb7`), ensuring the phone notification immediately adopts the exact remaining time from the web instead of resetting to 0.
-     - Android `TimerForegroundService.kt` prevents running timer reset on re-render (`commit 536929d`).
-     - Web passes `discard: true` on session save/clear (`commit a0b44ef`), preventing duplicate Room offline queue records and eliminating ghost timer conflicts.
-  3. **Repository Status**: Both repos pushed and clean:
-     - Android: `https://github.com/Ekteder/ScholarPulse-App.git` (`main` branch, commit `536929d`)
+  1. **Top Status Bar & Camera Cutout Separation**: Native `statusBarsPadding()` and `topInsetBg` applied to the Compose root container (`WebAppShell.kt`). The top header (`Workspace / Dashboard / Timer`) and unauthenticated header (`ScholarPulse`) start cleanly below the system clock, network meter, and battery indicator with zero collision across light and dark themes.
+  2. **Bottom Gesture Bar Clearance**: Native `navigationBarsPadding()` applied in Compose, providing full ergonomics and thumb spacing above Android's navigation gesture pill for bottom tabs (`Dashboard`, `Timer`, `Tracker`, `Subjects`, `More`).
+  3. **PWA Install Button Suppression**: Automatic CSS injection in `SecureWebViewClient.kt` hides redundant `[data-pwa-install]`, `.pwa-install-button`, and download buttons inside the native Android companion shell.
+  4. **Empirical Screenshot Verification**: Captured live screenshot on Xiaomi Redmi 9 (`f780dc8b0404`) showing 100% visual layout integrity with user logged into workspace.
+  5. **Repository Status**: Both repos pushed and clean:
+     - Android: `https://github.com/Ekteder/ScholarPulse-App.git` (`main` branch, commit `1c5d9cd`)
      - Web: `https://github.com/Ekteder/scholarpulsev2.git` (`main` branch, commit `5d31cb7`)
-- **Blocker Status**: None. Background live notification and cross-device sync 100% operational.
+- **Blocker Status**: None. Header, navigation, and safe areas 100% operational.
 
 ---
 
