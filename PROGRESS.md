@@ -20,17 +20,17 @@
 > 5. **Update this file at every milestone**: The Main Agent edits this file as each task or phase concludes, logging exact test results and file diffs.
 
 ### Active Phase & Resume Pointer
-- **Current Active Phase**: **Native Shell Ergonomics & Edge-to-Edge Safe-Area Verification — `[x] FULLY RESOLVED & VERIFIED`**
-- **Current Active Task**: Top status bar collision, bottom gesture bar collision, and redundant PWA install button completely eliminated.
+- **Current Active Phase**: **Native Theme Synchronization & Edge-to-Edge Color Harmony — `[x] FULLY VERIFIED & RELEASED`**
+- **Current Active Task**: Real-time theme synchronization between Next.js DOM and Android `SystemBarStyle` edge-to-edge system bars verified on Samsung Galaxy A26.
 - **Milestones Verified**:
-  1. **Top Status Bar & Camera Cutout Separation**: Native `statusBarsPadding()` and `topInsetBg` applied to the Compose root container (`WebAppShell.kt`). The top header (`Workspace / Dashboard / Timer`) and unauthenticated header (`ScholarPulse`) start cleanly below the system clock, network meter, and battery indicator with zero collision across light and dark themes.
-  2. **Bottom Gesture Bar Clearance**: Native `navigationBarsPadding()` applied in Compose, providing full ergonomics and thumb spacing above Android's navigation gesture pill for bottom tabs (`Dashboard`, `Timer`, `Tracker`, `Subjects`, `More`).
-  3. **PWA Install Button Suppression**: Automatic CSS injection in `SecureWebViewClient.kt` hides redundant `[data-pwa-install]`, `.pwa-install-button`, and download buttons inside the native Android companion shell.
-  4. **Empirical Screenshot Verification**: Captured live screenshot on Xiaomi Redmi 9 (`f780dc8b0404`) showing 100% visual layout integrity with user logged into workspace.
+  1. **Real-time DOM Theme Observer**: Implemented a live `MutationObserver` on `document.documentElement` attributes (`class`) in [`SecureWebViewClient.kt`](file:///media/sanglap/Movies/scholarpulsev2/app/app/src/main/java/com/scholarpulse/app/ui/SecureWebViewClient.kt) and direct `@JavascriptInterface` bridge method `updateTheme` in [`FallbackJavaScriptInterface.kt`](file:///media/sanglap/Movies/scholarpulsev2/app/app/src/main/java/com/scholarpulse/app/bridge/FallbackJavaScriptInterface.kt).
+  2. **Zero-Seam Light Mode Blend**: When light theme is active, `SystemBarStyle.light` and `#FFFFFF` background apply to both status bar and navigation bar. Clock and battery icons render in sharp dark grey, blending seamlessly into the white header bar with zero black borders or letterboxing.
+  3. **Zero-Seam Dark Mode Blend**: When dark theme is active, `SystemBarStyle.dark` and Slate-900 (`#0F172A`) background apply to both status bar and navigation bar. Clock and battery icons render in pure white, blending seamlessly into the dark navy header bar.
+  4. **Empirical Multi-Device Verification**: Tested on both Xiaomi Redmi 9 (`f780dc8b0404`, Android 10) and Samsung Galaxy A26 (`R5CY82PDRMZ`, Android 16). Full-screen screenshots captured and verified in both light and dark modes.
   5. **Repository Status**: Both repos pushed and clean:
-     - Android: `https://github.com/Ekteder/ScholarPulse-App.git` (`main` branch, commit `1c5d9cd`)
+     - Android: `https://github.com/Ekteder/ScholarPulse-App.git` (`main` branch, commit `606ce9d`)
      - Web: `https://github.com/Ekteder/scholarpulsev2.git` (`main` branch, commit `5d31cb7`)
-- **Blocker Status**: None. Header, navigation, and safe areas 100% operational.
+- **Blocker Status**: None. Safe areas and dynamic theme matching 100% operational.
 
 ---
 
