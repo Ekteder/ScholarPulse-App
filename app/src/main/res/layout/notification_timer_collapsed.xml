@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/notif_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:background="#0F172A"
+    android:paddingStart="12dp"
+    android:paddingEnd="12dp"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp">
+
+    <!-- Left: Circular Blue Timer Icon -->
+    <ImageView
+        android:id="@+id/notif_icon"
+        android:layout_width="38dp"
+        android:layout_height="38dp"
+        android:src="@drawable/ic_notif_timer"
+        android:contentDescription="Study Timer" />
+
+    <!-- Center: Subject/Phase & Big Countdown Chronometer -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="8dp">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/notif_subject"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Physics"
+                android:textColor="#E2E8F0"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:maxLines="1"
+                android:ellipsize="end" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=" · "
+                android:textColor="#64748B"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/notif_phase"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Focus"
+                android:textColor="#38BDF8"
+                android:textSize="12sp"
+                android:maxLines="1" />
+        </LinearLayout>
+
+        <!-- Live Chronometer: Big, bold digits -->
+        <Chronometer
+            android:id="@+id/notif_chronometer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#FFFFFF"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <!-- Paused Text (Visible only when paused) -->
+        <TextView
+            android:id="@+id/notif_paused_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="24:45 (Paused)"
+            android:textColor="#F59E0B"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <!-- Right: Mini Action Controls -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <!-- Pause Button -->
+        <ImageButton
+            android:id="@+id/btn_notif_pause"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:background="@drawable/bg_notif_btn"
+            android:src="@drawable/ic_notif_pause"
+            android:padding="8dp"
+            android:scaleType="fitCenter"
+            android:contentDescription="Pause" />
+
+        <!-- Resume Button (Hidden when running) -->
+        <ImageButton
+            android:id="@+id/btn_notif_resume"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:background="@drawable/bg_notif_btn"
+            android:src="@drawable/ic_notif_play"
+            android:padding="8dp"
+            android:scaleType="fitCenter"
+            android:visibility="gone"
+            android:contentDescription="Resume" />
+
+        <!-- Finish & Save Button -->
+        <ImageButton
+            android:id="@+id/btn_notif_finish"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/bg_notif_btn"
+            android:src="@drawable/ic_notif_stop"
+            android:padding="8dp"
+            android:scaleType="fitCenter"
+            android:contentDescription="Finish and Save" />
+    </LinearLayout>
+</LinearLayout>
