@@ -124,4 +124,7 @@ interface OfflineMutationDao {
 
     @Query("DELETE FROM offline_mutations WHERE status = 'SYNCED'")
     suspend fun pruneSynced()
+
+    @Query("DELETE FROM offline_mutations WHERE actionType = 'TIMER'")
+    suspend fun clearPendingTimerMutations()
 }

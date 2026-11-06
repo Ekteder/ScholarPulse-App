@@ -10,6 +10,7 @@ import com.scholarpulse.app.db.OfflineMutationEntity
 import com.scholarpulse.app.db.ScholarPulseDatabase
 import com.scholarpulse.app.workers.OfflineSyncWorker
 import com.scholarpulse.app.workers.StudySessionBatchItem
+import com.scholarpulse.app.workers.ActiveTimerBatchItem
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -88,6 +89,7 @@ class TimerActionReceiver : BroadcastReceiver() {
 
                             try {
                                 val db = ScholarPulseDatabase.getInstance(context)
+                                db.offlineMutationDao().clearPendingTimerMutations()
                                 val mutation = OfflineMutationEntity(
                                     actionType = "SESSION",
                                     payloadJson = json.encodeToString(sessionItem),
@@ -164,11 +166,50 @@ class TimerActionReceiver : BroadcastReceiver() {
         // =========================================================================
         // Non-Terminal Interactive Actions: PAUSE, RESUME, SKIP_PHASE
         // =========================================================================
-        if (service != null) {
-            // Direct in-memory invocation on Main thread (zero IPC latency, zero background start limits)
+        if (service != null && (action == TimerForegroundService.ACTION_PAUSE || action == TimerForegroundService.ACTION_RESUME)) {
+            val isPaused = (action == TimerForegroundService.ACTION_PAUSE)
+            if (isPaused) service.pause() else service.resume()
+
+            val pendingResult = goAsync()
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val key = service.idempotencyKey
+                    if (key.isNotBlank()) {
+                        val timerItem = ActiveTimerBatchItem(
+                            idempotencyKey = key,
+                            subjectId = service.subjectId.ifBlank { "00000000-0000-0000-0000-000000000000" },
+                            topic = service.topic.ifBlank { "Focused Study" },
+                            notes = service.notes,
+                            mode = if (service.mode == TimerMode.POMODORO) "pomodoro" else "stopwatch",
+                            phase = if (service.phase == PomodoroPhase.FOCUS) "focus" else "short_break",
+                            status = if (isPaused) "paused" else "running",
+                            startedAt = if (service.startedAtIso.isNotBlank()) service.startedAtIso else Instant.now().toString(),
+                            lastResumedAt = if (service.lastResumedAtIso.isNotBlank()) service.lastResumedAtIso else Instant.now().toString(),
+                            accumulatedSeconds = service.accumulatedSeconds.toInt(),
+                            totalFocusSeconds = service.accumulatedSeconds.toInt(),
+                            targetDurationSeconds = service.targetDurationSeconds.toInt(),
+                            completedPomodoros = service.completedPomodoros,
+                            stateVersion = ((System.currentTimeMillis() / 1000L).toInt())
+                        )
+
+                        val db = ScholarPulseDatabase.getInstance(context)
+                        val mutation = OfflineMutationEntity(
+                            actionType = "TIMER",
+                            payloadJson = json.encodeToString(timerItem),
+                            idempotencyKey = "active_timer_$key"
+                        )
+                        db.offlineMutationDao().enqueueMutation(mutation)
+                        Log.i(TAG, "Enqueued active timer mutation ($action) to Room: $key")
+                        OfflineSyncWorker.enqueueImmediateSync(context)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to persist timer state mutation ($action)", e)
+                } finally {
+                    pendingResult.finish()
+                }
+            }
+        } else if (service != null) {
             when (action) {
-                TimerForegroundService.ACTION_PAUSE -> service.pause()
-                TimerForegroundService.ACTION_RESUME -> service.resume()
                 TimerForegroundService.ACTION_SKIP_PHASE, TimerForegroundService.ACTION_SKIP_BREAK -> service.skipPhase()
             }
         } else {
