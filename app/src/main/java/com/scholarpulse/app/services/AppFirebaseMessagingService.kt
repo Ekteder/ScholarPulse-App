@@ -155,15 +155,22 @@ class AppFirebaseMessagingService : FirebaseMessagingService() {
             }
         }
 
-        // 2. Visible Notification payload handling
-        val notification = remoteMessage.notification
-        if (notification != null) {
-            showNotification(notification, data)
+        // 2. Visible Notification payload handling (supports both standard notification and pure data payloads)
+        val title = remoteMessage.notification?.title ?: data["title"]
+        val body = remoteMessage.notification?.body ?: data["body"]
+
+        if (!title.isNullOrBlank() || !body.isNullOrBlank()) {
+            val targetUserId = data["userId"]
+            if (!targetUserId.isNullOrBlank() && targetUserId != "all") {
+                Log.d(TAG, "Push notification targeting specific user: $targetUserId")
+            }
+            showNotification(title ?: "ScholarPulse", body ?: "", data)
         }
     }
 
     private fun showNotification(
-        notification: RemoteMessage.Notification,
+        title: String,
+        body: String,
         data: Map<String, String>
     ) {
         if (!NotificationManagerCompat.from(this).areNotificationsEnabled()) {
@@ -174,8 +181,6 @@ class AppFirebaseMessagingService : FirebaseMessagingService() {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
             ?: return
 
-        val title = notification.title ?: "ScholarPulse"
-        val body = notification.body ?: ""
         val targetUrl = data["url"] ?: BuildConfig.WEB_APP_URL
         val tab = data["tab"]
 
@@ -203,6 +208,7 @@ class AppFirebaseMessagingService : FirebaseMessagingService() {
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
 

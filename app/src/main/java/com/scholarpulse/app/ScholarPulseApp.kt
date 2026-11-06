@@ -20,6 +20,22 @@ class ScholarPulseApp : Application() {
         super.onCreate()
         createNotificationChannels()
         com.scholarpulse.app.workers.OfflineSyncWorker.schedulePeriodicSync(this)
+        subscribeToGlobalAnnouncements()
+    }
+
+    private fun subscribeToGlobalAnnouncements() {
+        try {
+            com.google.firebase.messaging.FirebaseMessaging.getInstance().subscribeToTopic("announcements_global")
+                .addOnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                        android.util.Log.i("ScholarPulseApp", "Subscribed to announcements_global topic successfully")
+                    } else {
+                        android.util.Log.w("ScholarPulseApp", "Failed to subscribe to announcements_global", task.exception)
+                    }
+                }
+        } catch (e: Exception) {
+            android.util.Log.e("ScholarPulseApp", "Error subscribing to FCM topic", e)
+        }
     }
 
     private fun createNotificationChannels() {

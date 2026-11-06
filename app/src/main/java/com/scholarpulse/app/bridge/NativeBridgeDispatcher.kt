@@ -1,8 +1,10 @@
 package com.scholarpulse.app.bridge
 
+import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -10,6 +12,7 @@ import android.provider.Settings
 import android.util.Log
 import android.webkit.WebView
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.webkit.JavaScriptReplyProxy
 import com.scholarpulse.app.BuildConfig
 import com.scholarpulse.app.MainActivity
@@ -182,7 +185,10 @@ class NativeBridgeDispatcher(
             // Schedule Alarms & Batch Offline Sync (Phase 6)
             "alarms.sync", "notifications.syncScheduleAlarms" -> handleSyncScheduleAlarms(request, replyProxy)
             "sync.triggerBatch" -> handleTriggerBatchSync(request, replyProxy)
-            "fcm.getToken" -> handleGetFcmToken(request, replyProxy)
+            "fcm.getToken", "notifications.getToken", "notifications.getFcmToken" -> handleGetFcmToken(request, replyProxy)
+            "notifications.getStatus" -> handleNotificationGetStatus(request, replyProxy)
+            "notifications.requestPermission" -> handleNotificationRequestPermission(request, replyProxy)
+            "notifications.openSettings" -> handleNotificationOpenSettings(request, replyProxy)
             else -> {
                 sendResponse(
                     BridgeResponse(
@@ -1150,6 +1156,51 @@ class NativeBridgeDispatcher(
                 ),
                 replyProxy
             )
+        }
+    }
+
+    private fun handleNotificationGetStatus(request: BridgeRequest, replyProxy: JavaScriptReplyProxy?) {
+        val hasPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        } else {
+            NotificationManagerCompat.from(context).areNotificationsEnabled()
+        }
+        val result = buildJsonObject {
+            put("success", true)
+            put("granted", hasPermission)
+            put("status", if (hasPermission) "GRANTED" else "DENIED")
+        }
+        sendResponse(BridgeResponse(id = request.id, success = true, result = result), replyProxy)
+    }
+
+    private fun handleNotificationRequestPermission(request: BridgeRequest, replyProxy: JavaScriptReplyProxy?) {
+        mainHandler.post {
+            (activityProvider?.invoke() as? MainActivity)?.requestNotificationPermissionIfNeeded()
+        }
+        val hasPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        } else {
+            NotificationManagerCompat.from(context).areNotificationsEnabled()
+        }
+        val result = buildJsonObject {
+            put("success", true)
+            put("requested", true)
+            put("granted", hasPermission)
+        }
+        sendResponse(BridgeResponse(id = request.id, success = true, result = result), replyProxy)
+    }
+
+    private fun handleNotificationOpenSettings(request: BridgeRequest, replyProxy: JavaScriptReplyProxy?) {
+        try {
+            val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            context.startActivity(intent)
+            sendResponse(BridgeResponse(id = request.id, success = true, result = buildJsonObject { put("success", true) }), replyProxy)
+        } catch (e: Exception) {
+            Log.e(tag, "Failed to open notification settings", e)
+            sendResponse(BridgeResponse(id = request.id, success = false, error = BridgeError(code = BridgeErrorCodes.E_INTERNAL_ERROR, message = e.message ?: "Failed to open settings")), replyProxy)
         }
     }
 

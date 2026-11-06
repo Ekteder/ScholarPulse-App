@@ -43,6 +43,8 @@ class MainActivity : ComponentActivity() {
     private var isWebReady by mutableStateOf(false)
     private var explicitThemeDark by mutableStateOf<Boolean?>(null)
     private lateinit var bridgeDispatcher: NativeBridgeDispatcher
+    private var pendingNotificationTab: String? = null
+    private var pendingNotificationTargetId: String? = null
 
     private val requestNotificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
@@ -147,11 +149,21 @@ class MainActivity : ComponentActivity() {
             syncSystemBars(effectiveDark)
 
             ScholarPulseTheme(darkTheme = effectiveDark) {
+                val initialUrl = if (!pendingNotificationTab.isNullOrBlank()) {
+                    val sep = if (BuildConfig.WEB_APP_URL.contains("?")) "&" else "?"
+                    "${BuildConfig.WEB_APP_URL}${sep}tab=${pendingNotificationTab}"
+                } else {
+                    BuildConfig.WEB_APP_URL
+                }
+
                 WebAppShell(
-                    targetUrl = BuildConfig.WEB_APP_URL,
+                    targetUrl = initialUrl,
                     bridgeDispatcher = bridgeDispatcher,
                     isDarkTheme = effectiveDark,
-                    onWebReady = { isWebReady = true }
+                    onWebReady = {
+                        isWebReady = true
+                        flushPendingNavigationIfNeeded()
+                    }
                 )
             }
         }
@@ -179,21 +191,42 @@ class MainActivity : ComponentActivity() {
         val targetId = intent.getStringExtra("targetId") ?: intent.data?.getQueryParameter("targetId")
 
         if (!tab.isNullOrBlank()) {
-            bridgeDispatcher.sendEvent(
-                "navigation.deepLink",
-                buildJsonObject {
-                    put("tab", tab)
-                    if (!targetId.isNullOrBlank()) {
-                        put("targetId", targetId)
-                    }
-                }
-            )
-            if (tab == "timer") {
-                bridgeDispatcher.sendEvent(
-                    "navigation.tabRequested",
-                    buildJsonObject { put("tab", "timer") }
-                )
+            if (isWebReady) {
+                dispatchNavigationEvent(tab, targetId)
+            } else {
+                pendingNotificationTab = tab
+                pendingNotificationTargetId = targetId
+                Log.d("MainActivity", "Buffered pending notification deep link: tab=$tab, targetId=$targetId")
             }
+        }
+    }
+
+    private fun dispatchNavigationEvent(tab: String, targetId: String?) {
+        bridgeDispatcher.sendEvent(
+            "navigation.deepLink",
+            buildJsonObject {
+                put("tab", tab)
+                if (!targetId.isNullOrBlank()) {
+                    put("targetId", targetId)
+                }
+            }
+        )
+        if (tab == "timer") {
+            bridgeDispatcher.sendEvent(
+                "navigation.tabRequested",
+                buildJsonObject { put("tab", "timer") }
+            )
+        }
+        Log.i("MainActivity", "Dispatched navigation deep-link: tab=$tab")
+    }
+
+    private fun flushPendingNavigationIfNeeded() {
+        val tab = pendingNotificationTab
+        if (!tab.isNullOrBlank()) {
+            val targetId = pendingNotificationTargetId
+            pendingNotificationTab = null
+            pendingNotificationTargetId = null
+            dispatchNavigationEvent(tab, targetId)
         }
     }
 
