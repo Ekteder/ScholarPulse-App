@@ -61,6 +61,17 @@ enum class PomodoroPhase {
     LONG_BREAK
 }
 
+data class TimerSnapshot(
+    val subjectId: String,
+    val subjectName: String,
+    val topic: String,
+    val notes: String,
+    val idempotencyKey: String,
+    val mode: TimerMode,
+    val elapsedSeconds: Long,
+    val startedAtIso: String
+)
+
 /**
  * Un-killable Foreground Service managing academic study timer tracking.
  * Features:
@@ -333,6 +344,25 @@ class TimerForegroundService : Service() {
         if (mode == TimerMode.STOPWATCH) return 0L
         val elapsed = getElapsedSeconds()
         return maxOf(0L, targetDurationSeconds - elapsed)
+    }
+
+    fun captureSnapshot(): TimerSnapshot {
+        val elapsed = getElapsedSeconds()
+        val effectiveStartIso = if (startedAtIso.isNotBlank()) {
+            startedAtIso
+        } else {
+            java.time.Instant.ofEpochMilli(System.currentTimeMillis() - (elapsed * 1000L)).toString()
+        }
+        return TimerSnapshot(
+            subjectId = subjectId,
+            subjectName = subjectName,
+            topic = topic,
+            notes = notes,
+            idempotencyKey = idempotencyKey,
+            mode = mode,
+            elapsedSeconds = elapsed,
+            startedAtIso = effectiveStartIso
+        )
     }
 
     // =========================================================================

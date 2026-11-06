@@ -20,17 +20,15 @@
 > 5. **Update this file at every milestone**: The Main Agent edits this file as each task or phase concludes, logging exact test results and file diffs.
 
 ### Active Phase & Resume Pointer
-- **Current Active Phase**: **Native Theme Synchronization & Edge-to-Edge Color Harmony — `[x] FULLY VERIFIED & RELEASED`**
-- **Current Active Task**: Real-time theme synchronization between Next.js DOM and Android `SystemBarStyle` edge-to-edge system bars verified on Samsung Galaxy A26.
+- **Current Active Phase**: **Background Notification Finish & Tombstone Reconciliation (Option C/A Hybrid) — `[x] IMPLEMENTED & VERIFIED`**
+- **Current Active Task**: Pure background notification finish with Room persistence, SharedPreferences tombstoning, WorkManager expedited sync, and anti-resurrection bridge guardrails.
 - **Milestones Verified**:
-  1. **Real-time DOM Theme Observer**: Implemented a live `MutationObserver` on `document.documentElement` attributes (`class`) in [`SecureWebViewClient.kt`](file:///media/sanglap/Movies/scholarpulsev2/app/app/src/main/java/com/scholarpulse/app/ui/SecureWebViewClient.kt) and direct `@JavascriptInterface` bridge method `updateTheme` in [`FallbackJavaScriptInterface.kt`](file:///media/sanglap/Movies/scholarpulsev2/app/app/src/main/java/com/scholarpulse/app/bridge/FallbackJavaScriptInterface.kt).
-  2. **Zero-Seam Light Mode Blend**: When light theme is active, `SystemBarStyle.light` and `#FFFFFF` background apply to both status bar and navigation bar. Clock and battery icons render in sharp dark grey, blending seamlessly into the white header bar with zero black borders or letterboxing.
-  3. **Zero-Seam Dark Mode Blend**: When dark theme is active, `SystemBarStyle.dark` and Slate-900 (`#0F172A`) background apply to both status bar and navigation bar. Clock and battery icons render in pure white, blending seamlessly into the dark navy header bar.
-  4. **Empirical Multi-Device Verification**: Tested on both Xiaomi Redmi 9 (`f780dc8b0404`, Android 10) and Samsung Galaxy A26 (`R5CY82PDRMZ`, Android 16). Full-screen screenshots captured and verified in both light and dark modes.
-  5. **Repository Status**: Both repos pushed and clean:
-     - Android: `https://github.com/Ekteder/ScholarPulse-App.git` (`main` branch, commit `606ce9d`)
-     - Web: `https://github.com/Ekteder/scholarpulsev2.git` (`main` branch, commit `5d31cb7`)
-- **Blocker Status**: None. Safe areas and dynamic theme matching 100% operational.
+  1. **Background Native Sovereignty**: When Finish [ ⏹ ] is tapped in the notification shade while the screen is off or the WebView is frozen, [`TimerActionReceiver.kt`](file:///media/sanglap/Movies/scholarpulsev2/app/app/src/main/java/com/scholarpulse/app/services/TimerActionReceiver.kt) snapshots the timer state, writes an anti-resurrection tombstone to [`TimerStateStore.kt`](file:///media/sanglap/Movies/scholarpulsev2/app/app/src/main/java/com/scholarpulse/app/services/TimerStateStore.kt), enqueues an `OfflineMutationEntity` (`actionType = "SESSION"`) to Room SQLite, and triggers [`OfflineSyncWorker.enqueueImmediateSync`](file:///media/sanglap/Movies/scholarpulsev2/app/app/src/main/java/com/scholarpulse/app/workers/OfflineSyncWorker.kt).
+  2. **Eliminated `ForegroundServiceDidNotStartInTimeException` Crash Trap**: Removed dangerous `startForegroundService()` call in [`TimerActionReceiver.kt`](file:///media/sanglap/Movies/scholarpulsev2/app/app/src/main/java/com/scholarpulse/app/services/TimerActionReceiver.kt) for terminal actions. Taps on [ ⏹ ] cleanly finish the service on the Main thread without re-spawning foreground notifications.
+  3. **Synchronous Anti-Resurrection Guardrail**: [`NativeBridgeDispatcher.kt`](file:///media/sanglap/Movies/scholarpulsev2/app/app/src/main/java/com/scholarpulse/app/bridge/NativeBridgeDispatcher.kt) checks `timerStateStore.isSessionTombstoned(...)` on every `timer.start` call. If React attempts to resurrect a session that was finished in the notification, Android rejects it with `E_SESSION_TOMBSTONED` and re-dispatches `timer.actionTriggered (finish)`.
+  4. **Synchronous Bridge Sync State Method**: Added `@JavascriptInterface fun getNativeTimerSyncState(): String` and `acknowledgePendingReview(idempotencyKey)` on [`FallbackJavaScriptInterface.kt`](file:///media/sanglap/Movies/scholarpulsev2/app/app/src/main/java/com/scholarpulse/app/bridge/FallbackJavaScriptInterface.kt) allowing 0ms pull on app resume.
+  5. **Empirical Verification**: All unit tests in [`TimerTombstoneSyncTest.kt`](file:///media/sanglap/Movies/scholarpulsev2/app/app/src/test/java/com/scholarpulse/app/TimerTombstoneSyncTest.kt) passed (`BUILD SUCCESSFUL in 10s`). Debug APK compiled cleanly (`BUILD SUCCESSFUL in 2m 44s`).
+- **Blocker Status**: None. Native layer ready for web client reconciliation integration.
 
 ---
 

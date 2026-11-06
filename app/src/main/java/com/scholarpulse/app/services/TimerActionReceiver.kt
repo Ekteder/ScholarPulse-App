@@ -6,18 +6,40 @@ import android.content.Intent
 import android.os.Build
 import android.util.Log
 import com.scholarpulse.app.bridge.NativeBridgeDispatcher
+import com.scholarpulse.app.db.OfflineMutationEntity
+import com.scholarpulse.app.db.ScholarPulseDatabase
+import com.scholarpulse.app.workers.OfflineSyncWorker
+import com.scholarpulse.app.workers.StudySessionBatchItem
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import java.time.Instant
 
 /**
  * BroadcastReceiver intercepting notification action clicks from the persistent study timer.
- * Routes commands immediately to TimerForegroundService and emits `timer.actionTriggered`
+ * Routes commands directly to TimerForegroundService and emits `timer.actionTriggered`
  * to the WebView NativeBridgeDispatcher so the web React context synchronizes in real time.
+ *
+ * Implements native background sovereignty:
+ * - When Finish [ ⏹ ] is tapped, persists the completed session to Room SQLite,
+ *   marks the session tombstoned in TimerStateStore, and triggers WorkManager sync.
+ * - Guarantees zero reliance on the suspended WebView to record or terminate the session.
+ * - Eliminates ForegroundServiceDidNotStartInTimeException by avoiding startForegroundService()
+ *   for terminal teardown actions.
  */
 class TimerActionReceiver : BroadcastReceiver() {
 
     companion object {
         private const val TAG = "TimerActionReceiver"
+        private val json = Json {
+            ignoreUnknownKeys = true
+            encodeDefaults = true
+        }
     }
 
     override fun onReceive(context: Context?, intent: Intent?) {
@@ -25,31 +47,154 @@ class TimerActionReceiver : BroadcastReceiver() {
         val action = intent.action ?: return
         Log.d(TAG, "Notification action received: $action")
 
-        // 1. Route command to TimerForegroundService
-        val serviceIntent = Intent(context, TimerForegroundService::class.java).apply {
-            this.action = action
-        }
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(serviceIntent)
-            } else {
-                context.startService(serviceIntent)
+        val service = TimerForegroundService.instance
+
+        // =========================================================================
+        // Terminal Finish & Save Action [ ⏹ ]
+        // =========================================================================
+        if (action == TimerForegroundService.ACTION_FINISH || action == TimerForegroundService.ACTION_STOP) {
+            val pendingResult = goAsync()
+            val stateStore = TimerStateStore(context)
+
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val snapshot = service?.captureSnapshot()
+                    if (snapshot != null) {
+                        val duration = snapshot.elapsedSeconds
+                        val key = snapshot.idempotencyKey.ifBlank { "timer_${System.currentTimeMillis()}" }
+
+                        // 1. Mark tombstone natively so WebView can NEVER resurrect this timer
+                        stateStore.markSessionFinishedNatively(
+                            idempotencyKey = key,
+                            subjectId = snapshot.subjectId,
+                            topic = snapshot.topic,
+                            durationSeconds = duration
+                        )
+
+                        // 2. If session duration is >= 30 seconds, persist offline mutation to Room
+                        if (duration >= 30) {
+                            val sessionItem = StudySessionBatchItem(
+                                clientSessionId = key,
+                                idempotencyKey = "${key}_final",
+                                subjectId = snapshot.subjectId.ifBlank { "00000000-0000-0000-0000-000000000000" },
+                                startTime = snapshot.startedAtIso,
+                                endTime = Instant.now().toString(),
+                                durationSeconds = duration.toInt(),
+                                topic = snapshot.topic.ifBlank { "General Study" },
+                                notes = snapshot.notes,
+                                productivityRating = 4,
+                                sessionType = if (snapshot.mode == TimerMode.POMODORO) "timer" else "manual"
+                            )
+
+                            try {
+                                val db = ScholarPulseDatabase.getInstance(context)
+                                val mutation = OfflineMutationEntity(
+                                    actionType = "SESSION",
+                                    payloadJson = json.encodeToString(sessionItem),
+                                    idempotencyKey = sessionItem.idempotencyKey
+                                )
+                                db.offlineMutationDao().enqueueMutation(mutation)
+                                Log.i(TAG, "Enqueued offline mutation for completed study session: ${sessionItem.idempotencyKey}")
+
+                                // 3. Enqueue immediate WorkManager background sync
+                                OfflineSyncWorker.enqueueImmediateSync(context)
+                            } catch (dbErr: Exception) {
+                                Log.e(TAG, "Failed to enqueue offline session mutation in Room", dbErr)
+                            }
+                        } else {
+                            Log.d(TAG, "Session duration ($duration s) < 30s threshold; discarded without saving.")
+                        }
+                    }
+
+                    // 4. Terminate foreground service cleanly on Main thread without startForegroundService()
+                    withContext(Dispatchers.Main) {
+                        if (service != null) {
+                            service.finishSession()
+                        } else {
+                            context.stopService(Intent(context, TimerForegroundService::class.java))
+                        }
+                    }
+
+                    // 5. Best-effort dispatch event to WebView if awake
+                    val activeBridge = TimerForegroundService.dispatcher ?: NativeBridgeDispatcher.activeDispatcher
+                    val eventPayload = buildJsonObject {
+                        put("action", "finish")
+                        put("source", "notification")
+                        if (snapshot != null) {
+                            put("idempotencyKey", snapshot.idempotencyKey)
+                        }
+                    }
+                    activeBridge?.sendEvent("timer.actionTriggered", eventPayload)
+                    Log.d(TAG, "Dispatched timer.actionTriggered (finish) to bridge")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error handling notification finish action", e)
+                } finally {
+                    pendingResult.finish()
+                }
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to start service for action $action", e)
+            return
         }
 
-        // 2. Map notification action to web bridge contract
+        // =========================================================================
+        // Terminal Discard Action
+        // =========================================================================
+        if (action == TimerForegroundService.ACTION_DISCARD) {
+            val key = service?.idempotencyKey
+            if (!key.isNullOrBlank()) {
+                TimerStateStore(context).markSessionFinishedNatively(
+                    idempotencyKey = key,
+                    subjectId = service.subjectId,
+                    topic = service.topic,
+                    durationSeconds = service.getElapsedSeconds()
+                )
+            }
+            if (service != null) {
+                service.discardSession()
+            } else {
+                context.stopService(Intent(context, TimerForegroundService::class.java))
+            }
+            val activeBridge = TimerForegroundService.dispatcher ?: NativeBridgeDispatcher.activeDispatcher
+            activeBridge?.sendEvent("timer.actionTriggered", buildJsonObject {
+                put("action", "discard")
+                put("source", "notification")
+            })
+            return
+        }
+
+        // =========================================================================
+        // Non-Terminal Interactive Actions: PAUSE, RESUME, SKIP_PHASE
+        // =========================================================================
+        if (service != null) {
+            // Direct in-memory invocation on Main thread (zero IPC latency, zero background start limits)
+            when (action) {
+                TimerForegroundService.ACTION_PAUSE -> service.pause()
+                TimerForegroundService.ACTION_RESUME -> service.resume()
+                TimerForegroundService.ACTION_SKIP_PHASE, TimerForegroundService.ACTION_SKIP_BREAK -> service.skipPhase()
+            }
+        } else {
+            // Service not running in memory; route via Service Intent
+            val serviceIntent = Intent(context, TimerForegroundService::class.java).apply {
+                this.action = action
+            }
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(serviceIntent)
+                } else {
+                    context.startService(serviceIntent)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to start service for action $action", e)
+            }
+        }
+
+        // Map notification action to web bridge contract and dispatch
         val bridgeAction = when (action) {
             TimerForegroundService.ACTION_PAUSE -> "pause"
             TimerForegroundService.ACTION_RESUME -> "resume"
-            TimerForegroundService.ACTION_FINISH, TimerForegroundService.ACTION_STOP -> "finish"
             TimerForegroundService.ACTION_SKIP_PHASE, TimerForegroundService.ACTION_SKIP_BREAK -> "skipPhase"
-            TimerForegroundService.ACTION_DISCARD -> "discard"
             else -> action
         }
 
-        // 3. Dispatch unsolicited event to web React context
         val eventPayload = buildJsonObject {
             put("action", bridgeAction)
             put("source", "notification")

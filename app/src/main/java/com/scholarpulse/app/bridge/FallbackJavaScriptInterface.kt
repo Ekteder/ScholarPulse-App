@@ -21,4 +21,14 @@ class FallbackJavaScriptInterface(
             dispatcher.onThemeChange?.invoke(isDark)
         }
     }
+
+    @JavascriptInterface
+    fun getNativeTimerSyncState(): String {
+        return dispatcher.getTimerSyncState()
+    }
+
+    @JavascriptInterface
+    fun acknowledgePendingReview(idempotencyKey: String) {
+        dispatcher.acknowledgePendingReview(idempotencyKey)
+    }
 }

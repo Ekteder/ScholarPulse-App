@@ -26,6 +26,7 @@ import com.scholarpulse.app.services.PomodoroPhase
 import com.scholarpulse.app.services.TimerForegroundService
 import com.scholarpulse.app.services.TimerMode
 import com.scholarpulse.app.services.TimerStatus
+import com.scholarpulse.app.services.TimerStateStore
 import com.scholarpulse.app.alarms.ScheduleAlarmScheduler
 import com.scholarpulse.app.db.ScheduleEntity
 import com.scholarpulse.app.db.ScholarPulseDatabase
@@ -80,6 +81,14 @@ class NativeBridgeDispatcher(
     var cookieSessionManager: CookieSessionManager? = null
     @Volatile
     private var isAuthInProgress = false
+
+    private val timerStateStore = TimerStateStore(context)
+
+    fun getTimerSyncState(): String = timerStateStore.getSyncStateJson()
+
+    fun acknowledgePendingReview(idempotencyKey: String?) {
+        timerStateStore.clearPendingReview(idempotencyKey)
+    }
 
     val json = Json {
         ignoreUnknownKeys = true
@@ -164,6 +173,8 @@ class NativeBridgeDispatcher(
             "timer.stop" -> handleTimerStop(request, replyProxy)
             "timer.skipPhase" -> handleTimerSkipPhase(request, replyProxy)
             "timer.getStatus" -> handleTimerGetStatus(request, replyProxy)
+            "timer.getSyncState" -> handleTimerGetSyncState(request, replyProxy)
+            "timer.ackReview" -> handleTimerAckReview(request, replyProxy)
 
             // Native PCM Audio Synthesis (Phase 5)
             "audio.playChime" -> handleAudioPlayChime(request, replyProxy)
@@ -212,6 +223,30 @@ class NativeBridgeDispatcher(
         } catch (e: Exception) {
             Log.w(tag, "Failed to parse StartTimerParams, falling back to default", e)
             StartTimerParams()
+        }
+
+        // GUARDRAIL: Refuse to resurrect a session that was already finished natively in the notification
+        if (timerStateStore.isSessionTombstoned(params.idempotencyKey)) {
+            Log.w(tag, "Refusing to start/resurrect tombstoned timer session: ${params.idempotencyKey}")
+            val eventPayload = buildJsonObject {
+                put("action", "finish")
+                put("source", "native_tombstone")
+                put("idempotencyKey", params.idempotencyKey)
+            }
+            sendEvent("timer.actionTriggered", eventPayload)
+
+            sendResponse(
+                BridgeResponse(
+                    id = request.id,
+                    success = false,
+                    error = BridgeError(
+                        code = "E_SESSION_TOMBSTONED",
+                        message = "Timer session ${params.idempotencyKey} was already finished natively."
+                    )
+                ),
+                replyProxy
+            )
+            return
         }
 
         val serviceIntent = Intent(context, TimerForegroundService::class.java).apply {
@@ -398,6 +433,15 @@ class NativeBridgeDispatcher(
                 queuedOffline = true
             }
 
+            if (service.idempotencyKey.isNotBlank()) {
+                timerStateStore.markSessionFinishedNatively(
+                    idempotencyKey = service.idempotencyKey,
+                    subjectId = service.subjectId,
+                    topic = service.topic,
+                    durationSeconds = finalSeconds
+                )
+            }
+
             if (isDiscard) {
                 service.discardSession()
             } else {
@@ -534,6 +578,43 @@ class NativeBridgeDispatcher(
                 id = request.id,
                 success = true,
                 result = result
+            ),
+            replyProxy
+        )
+    }
+
+    private fun handleTimerGetSyncState(request: BridgeRequest, replyProxy: JavaScriptReplyProxy?) {
+        val rawJson = timerStateStore.getSyncStateJson()
+        val result = try {
+            json.parseToJsonElement(rawJson)
+        } catch (_: Exception) {
+            buildJsonObject {}
+        }
+        sendResponse(
+            BridgeResponse(
+                id = request.id,
+                success = true,
+                result = result
+            ),
+            replyProxy
+        )
+    }
+
+    private fun handleTimerAckReview(request: BridgeRequest, replyProxy: JavaScriptReplyProxy?) {
+        val key = try {
+            val paramsObj = request.params as? kotlinx.serialization.json.JsonObject
+            paramsObj?.get("idempotencyKey")?.let {
+                if (it is kotlinx.serialization.json.JsonPrimitive) it.content else null
+            }
+        } catch (_: Exception) {
+            null
+        }
+        timerStateStore.clearPendingReview(key)
+        sendResponse(
+            BridgeResponse(
+                id = request.id,
+                success = true,
+                result = buildJsonObject { put("acknowledged", true) }
             ),
             replyProxy
         )
