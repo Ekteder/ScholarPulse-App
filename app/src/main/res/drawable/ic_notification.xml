@@ -1,36 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="288dp"
-    android:height="288dp"
-    android:viewportWidth="512"
-    android:viewportHeight="512">
-    <!-- Rounded Background Card -->
-    <path
-        android:fillColor="#2563EB"
-        android:pathData="M112,0 L400,0 A112,112 0 0,1 512,112 L512,400 A112,112 0 0,1 400,512 L112,512 A112,112 0 0,1 0,400 L0,112 A112,112 0 0,1 112,0 Z" />
-    <!-- Graduation Cap Crown -->
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Pure white graduation cap silhouette on transparent background for Android status bar -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M256,116 L96,192 L256,268 L416,192 Z" />
-    <!-- Cap Base -->
-    <path
-        android:fillColor="#E0E7FF"
-        android:pathData="M152,232 V324 C152,356 198,384 256,384 C314,384 360,356 360,324 V232 L256,282 Z" />
-    <!-- Tassel Cord -->
-    <path
-        android:pathData="M400,200 V308"
-        android:strokeColor="#93C5FD"
-        android:strokeWidth="18"
-        android:strokeLineCap="round" />
-    <!-- Tassel Bulb -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M400,302 A14,14 0 1,0 400,330 A14,14 0 1,0 400,302 Z" />
-    <!-- Waveform Accent -->
-    <path
-        android:pathData="M176,324 H216 L236,290 L268,354 L290,314 L306,324 H336"
-        android:strokeColor="#2563EB"
-        android:strokeWidth="16"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round" />
+        android:pathData="M12,3 L1,9 L12,15 L21,10.09 V17 H23 V9 Z M5,13.18 V17.18 C5,19.5 8.13,21 12,21 C15.87,21 19,19.5 19,17.18 V13.18 L12,17 Z" />
 </vector>
