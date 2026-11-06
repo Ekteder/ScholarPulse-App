@@ -69,6 +69,28 @@ class CookieSessionManager(private val context: Context) {
         return match?.groupValues?.get(1)
     }
 
+    /**
+     * Decodes the JWT session token payload to extract the student's unique userId / uid.
+     */
+    fun getUserIdFromSessionToken(sessionToken: String? = null): String? {
+        val token = sessionToken ?: getSessionToken() ?: return null
+        return try {
+            val parts = token.split(".")
+            if (parts.size >= 2) {
+                val payloadBytes = android.util.Base64.decode(
+                    parts[1],
+                    android.util.Base64.URL_SAFE or android.util.Base64.NO_PADDING or android.util.Base64.NO_WRAP
+                )
+                val payloadJson = String(payloadBytes, Charsets.UTF_8)
+                val regex = Regex(""""(?:uid|sub|userId)"\s*:\s*"([^"]+)"""")
+                regex.find(payloadJson)?.groupValues?.get(1)
+            } else null
+        } catch (e: Exception) {
+            Log.w(tag, "Failed to parse userId from session JWT", e)
+            null
+        }
+    }
+
     suspend fun clearSession() = withContext(Dispatchers.IO) {
         try {
             withContext(Dispatchers.Main) {

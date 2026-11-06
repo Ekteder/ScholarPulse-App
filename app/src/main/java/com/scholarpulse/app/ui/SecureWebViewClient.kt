@@ -14,6 +14,11 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.webkit.WebViewAssetLoader
 import com.scholarpulse.app.BuildConfig
+import com.scholarpulse.app.auth.CookieSessionManager
+import com.scholarpulse.app.services.AppFirebaseMessagingService
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class SecureWebViewClient(
     private val context: Context,
@@ -24,6 +29,7 @@ class SecureWebViewClient(
 ) : WebViewClient() {
 
     private val tag = "SecureWebViewClient"
+    private var lastRegisteredSessionToken: String? = null
 
     private val assetLoader = WebViewAssetLoader.Builder()
         .setDomain("appassets.androidplatform.net")
@@ -198,6 +204,23 @@ class SecureWebViewClient(
             """.trimIndent(),
             null
         )
+
+        // Auto-detect login or account switch and sync FCM device token
+        val cookieManager = CookieSessionManager(context)
+        val currentSessionToken = cookieManager.getSessionToken()
+        if (!currentSessionToken.isNullOrBlank() && currentSessionToken != lastRegisteredSessionToken) {
+            lastRegisteredSessionToken = currentSessionToken
+            val userId = cookieManager.getUserIdFromSessionToken(currentSessionToken)
+            Log.i(tag, "Active user session detected (userId=$userId). Auto-registering FCM device token.")
+            AppFirebaseMessagingService.getCachedToken(context)?.let { fcmToken ->
+                CoroutineScope(Dispatchers.IO).launch {
+                    AppFirebaseMessagingService.registerDeviceToken(context, fcmToken)
+                }
+            }
+        } else if (currentSessionToken.isNullOrBlank() && lastRegisteredSessionToken != null) {
+            Log.i(tag, "User logged out. Resetting lastRegisteredSessionToken.")
+            lastRegisteredSessionToken = null
+        }
 
         if (url != null) {
             onPageLoaded(url)

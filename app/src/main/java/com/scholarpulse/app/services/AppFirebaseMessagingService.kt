@@ -165,7 +165,22 @@ class AppFirebaseMessagingService : FirebaseMessagingService() {
         if (!title.isNullOrBlank() || !body.isNullOrBlank()) {
             val targetUserId = data["userId"]
             if (!targetUserId.isNullOrBlank() && targetUserId != "all") {
-                Log.d(TAG, "Push notification targeting specific user: $targetUserId")
+                val currentUserId = CookieSessionManager(applicationContext).getUserIdFromSessionToken()
+                if (currentUserId != null && currentUserId != targetUserId) {
+                    Log.w(
+                        TAG,
+                        "Silently dropping push notification targeted to '$targetUserId' because phone is currently logged in as '$currentUserId'"
+                    )
+                    return
+                }
+                if (currentUserId == null) {
+                    Log.w(
+                        TAG,
+                        "Silently dropping push notification targeted to '$targetUserId' because no active user is logged in on this phone"
+                    )
+                    return
+                }
+                Log.d(TAG, "Push notification targeting active user verified: $targetUserId")
             }
             showNotification(title ?: "ScholarPulse", body ?: "", data)
         }

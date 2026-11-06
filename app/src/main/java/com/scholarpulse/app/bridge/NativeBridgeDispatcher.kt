@@ -763,6 +763,13 @@ class NativeBridgeDispatcher(
                                     rawHeader = exchangeResult.rawCookieHeader
                                 )
 
+                                // Auto-register FCM device token for authenticated user
+                                AppFirebaseMessagingService.getCachedToken(context)?.let { fcmToken ->
+                                    scope.launch(Dispatchers.IO) {
+                                        AppFirebaseMessagingService.registerDeviceToken(context, fcmToken)
+                                    }
+                                }
+
                                 // 2. Respond to the RPC request
                                 val responseDto = GoogleSignInResponseDto(
                                     authenticated = true,
