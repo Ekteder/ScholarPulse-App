@@ -90,6 +90,14 @@
             </intent-filter>
         </receiver>
 
+        <!-- Firebase Cloud Messaging Metadata -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_splash_logo" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="announcements_channel" />
+
         <!-- Firebase Cloud Messaging Service -->
         <service
             android:name=".services.AppFirebaseMessagingService"
