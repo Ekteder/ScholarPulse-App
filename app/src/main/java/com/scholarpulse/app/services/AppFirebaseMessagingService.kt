@@ -224,7 +224,6 @@ class AppFirebaseMessagingService : FirebaseMessagingService() {
             .setColor(ContextCompat.getColor(this, R.color.blue_600))
             .setContentTitle(title)
             .setContentText(body)
-            .setSubText("ScholarPulse")
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
