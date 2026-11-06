@@ -53,7 +53,7 @@ import java.net.URI
 import java.time.Instant
 
 class NativeBridgeDispatcher(
-    private val context: Context,
+    val context: Context,
     private val scope: CoroutineScope
 ) {
     companion object {
@@ -178,6 +178,7 @@ class NativeBridgeDispatcher(
             "timer.getStatus" -> handleTimerGetStatus(request, replyProxy)
             "timer.getSyncState" -> handleTimerGetSyncState(request, replyProxy)
             "timer.ackReview" -> handleTimerAckReview(request, replyProxy)
+            "timer.onRemoteSync", "timer.syncRemoteState" -> handleTimerRemoteSync(request, replyProxy)
 
             // Native PCM Audio Synthesis (Phase 5)
             "audio.playChime" -> handleAudioPlayChime(request, replyProxy)
@@ -385,6 +386,34 @@ class NativeBridgeDispatcher(
                 id = request.id,
                 success = true,
                 result = result
+            ),
+            replyProxy
+        )
+    }
+
+    private fun handleTimerRemoteSync(request: BridgeRequest, replyProxy: JavaScriptReplyProxy?) {
+        val params = try {
+            request.params?.let { json.decodeFromJsonElement<RemoteTimerSyncParams>(it) }
+        } catch (_: Exception) {
+            null
+        }
+
+        if (params != null) {
+            val accumulated = params.accumulatedSeconds ?: (params.remainingMs?.let { 0L } ?: -1L)
+            TimerForegroundService.dispatchRemoteSync(
+                context = context,
+                action = params.action,
+                accumulatedSeconds = accumulated,
+                updatedAt = params.updatedAt ?: System.currentTimeMillis(),
+                originDeviceId = params.originDeviceId.orEmpty()
+            )
+        }
+
+        sendResponse(
+            BridgeResponse(
+                id = request.id,
+                success = true,
+                result = buildJsonObject { put("synced", true) }
             ),
             replyProxy
         )

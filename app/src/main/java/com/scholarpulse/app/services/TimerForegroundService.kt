@@ -99,6 +99,7 @@ class TimerForegroundService : Service() {
         const val ACTION_SKIP_PHASE = "com.scholarpulse.app.ACTION_SKIP_PHASE"
         const val ACTION_SKIP_BREAK = "com.scholarpulse.app.ACTION_SKIP_BREAK"
         const val ACTION_DISCARD = "com.scholarpulse.app.ACTION_DISCARD"
+        const val ACTION_REMOTE_SYNC = "com.scholarpulse.app.ACTION_REMOTE_SYNC"
 
         // Intent Extras
         const val EXTRA_SUBJECT_ID = "extra_subject_id"
@@ -110,6 +111,38 @@ class TimerForegroundService : Service() {
         const val EXTRA_IDEMPOTENCY_KEY = "extra_idempotency_key"
         const val EXTRA_ACCUMULATED_SECONDS = "extra_accumulated_seconds"
         const val EXTRA_PHASE = "extra_phase"
+        const val EXTRA_REMOTE_ACTION = "extra_remote_action"
+        const val EXTRA_UPDATED_AT = "extra_updated_at"
+        const val EXTRA_ORIGIN_DEVICE_ID = "extra_origin_device_id"
+
+        fun dispatchRemoteSync(
+            context: Context,
+            action: String,
+            accumulatedSeconds: Long = -1L,
+            updatedAt: Long = System.currentTimeMillis(),
+            originDeviceId: String = ""
+        ) {
+            val intent = Intent(context, TimerForegroundService::class.java).apply {
+                this.action = ACTION_REMOTE_SYNC
+                putExtra(EXTRA_REMOTE_ACTION, action)
+                putExtra(EXTRA_ACCUMULATED_SECONDS, accumulatedSeconds)
+                putExtra(EXTRA_UPDATED_AT, updatedAt)
+                putExtra(EXTRA_ORIGIN_DEVICE_ID, originDeviceId)
+            }
+            try {
+                if (action.equals("START", ignoreCase = true) || action.equals("RESUME", ignoreCase = true)) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        context.startForegroundService(intent)
+                    } else {
+                        context.startService(intent)
+                    }
+                } else {
+                    context.startService(intent)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to dispatch remote sync intent for action $action", e)
+            }
+        }
 
         // Global singleton pointers for direct IPC and status inspection
         @Volatile
@@ -163,6 +196,8 @@ class TimerForegroundService : Service() {
     var lastResumedAtIso: String = ""
         private set
 
+    private var lastAppliedUpdatedAt: Long = 0L
+
     override fun onCreate() {
         super.onCreate()
         instance = this
@@ -177,6 +212,7 @@ class TimerForegroundService : Service() {
         Log.d(TAG, "onStartCommand received action: $action")
 
         when (action) {
+            ACTION_REMOTE_SYNC -> handleRemoteSync(intent)
             ACTION_START -> handleStart(intent)
             ACTION_PAUSE -> pause()
             ACTION_RESUME -> resume()
@@ -186,6 +222,60 @@ class TimerForegroundService : Service() {
         }
 
         return START_NOT_STICKY
+    }
+
+    private fun handleRemoteSync(intent: Intent?) {
+        if (intent == null) return
+        val remoteAction = intent.getStringExtra(EXTRA_REMOTE_ACTION)?.uppercase() ?: return
+        val updatedAt = intent.getLongExtra(EXTRA_UPDATED_AT, 0L)
+        val originDeviceId = intent.getStringExtra(EXTRA_ORIGIN_DEVICE_ID).orEmpty()
+        val remoteAccumulated = intent.getLongExtra(EXTRA_ACCUMULATED_SECONDS, -1L)
+
+        // 1. Echo suppression: if action originated from this local phone, drop
+        val localDeviceId = try {
+            android.provider.Settings.Secure.getString(contentResolver, android.provider.Settings.Secure.ANDROID_ID) ?: ""
+        } catch (_: Exception) { "" }
+
+        if (originDeviceId.isNotBlank() && originDeviceId == localDeviceId) {
+            Log.d(TAG, "Echo suppression: dropping remote sync originated from this local device ($originDeviceId)")
+            return
+        }
+
+        // 2. Monotonic ordering: drop stale or duplicate events
+        if (updatedAt > 0L && updatedAt <= lastAppliedUpdatedAt) {
+            Log.d(TAG, "Ordering guard: dropping remote sync with stale timestamp $updatedAt <= $lastAppliedUpdatedAt")
+            return
+        }
+        if (updatedAt > 0L) {
+            lastAppliedUpdatedAt = updatedAt
+        }
+
+        Log.i(TAG, "Applying remote timer transition: action=$remoteAction, accumulated=$remoteAccumulated, updatedAt=$updatedAt")
+
+        when (remoteAction) {
+            "PAUSE" -> {
+                if (status == TimerStatus.RUNNING || status == TimerStatus.BREAK) {
+                    pause(if (remoteAccumulated >= 0L) remoteAccumulated else null)
+                }
+            }
+            "RESUME" -> {
+                if (status == TimerStatus.PAUSED) {
+                    resume(if (remoteAccumulated >= 0L) remoteAccumulated else null)
+                }
+            }
+            "START" -> {
+                if (status == TimerStatus.IDLE) {
+                    handleStart(intent)
+                } else if (status == TimerStatus.PAUSED) {
+                    resume(if (remoteAccumulated >= 0L) remoteAccumulated else null)
+                }
+            }
+            "STOP", "FINISH", "DISCARD", "DELETE" -> {
+                if (status != TimerStatus.IDLE) {
+                    discardSession()
+                }
+            }
+        }
     }
 
     override fun onDestroy() {
@@ -255,9 +345,13 @@ class TimerForegroundService : Service() {
         dispatchTickEvent()
     }
 
-    fun pause() {
+    fun pause(overrideAccumulated: Long? = null) {
         if (status != TimerStatus.RUNNING && status != TimerStatus.BREAK) return
-        val currentElapsed = getElapsedSeconds()
+        val currentElapsed = if (overrideAccumulated != null && overrideAccumulated >= 0L) {
+            overrideAccumulated
+        } else {
+            getElapsedSeconds()
+        }
         accumulatedSeconds = currentElapsed
         lastResumedAtMs = System.currentTimeMillis()
         lastResumedAtIso = Instant.ofEpochMilli(lastResumedAtMs).toString()
@@ -269,8 +363,11 @@ class TimerForegroundService : Service() {
         Log.d(TAG, "Timer paused at $accumulatedSeconds seconds")
     }
 
-    fun resume() {
+    fun resume(overrideAccumulated: Long? = null) {
         if (status != TimerStatus.PAUSED) return
+        if (overrideAccumulated != null && overrideAccumulated >= 0L) {
+            accumulatedSeconds = overrideAccumulated
+        }
         lastResumedAtMs = System.currentTimeMillis()
         lastResumedAtIso = Instant.ofEpochMilli(lastResumedAtMs).toString()
         status = if (phase == PomodoroPhase.FOCUS) TimerStatus.RUNNING else TimerStatus.BREAK

@@ -147,10 +147,39 @@ class AppFirebaseMessagingService : FirebaseMessagingService() {
         super.onMessageReceived(remoteMessage)
         Log.d(TAG, "FCM message received from: ${remoteMessage.from}")
 
-        // 1. Silent data payload handling (e.g. workspace refresh or sync triggers)
+        // 1. Silent data payload handling (e.g. remote timer control, workspace refresh)
         val data = remoteMessage.data
         if (data.isNotEmpty()) {
             val eventType = data["eventType"] ?: data["type"]
+
+            // 1a. Remote Timer Control (Real-time 2-way sync from desktop web)
+            if (eventType == "timer_state" || eventType == "timer:update" || eventType == "timer:delete" || data["timerAction"] != null) {
+                val action = (data["action"] ?: data["timerAction"] ?: if (eventType == "timer:delete") "STOP" else "PAUSE").uppercase()
+                val accumulatedSeconds = data["accumulatedSeconds"]?.toLongOrNull() ?: -1L
+                val updatedAt = data["updatedAt"]?.toLongOrNull() ?: System.currentTimeMillis()
+                val originDeviceId = data["originDeviceId"] ?: data["clientDeviceId"] ?: ""
+                val targetUserId = data["userId"]
+
+                // User match guard
+                if (!targetUserId.isNullOrBlank() && targetUserId != "all") {
+                    val currentUserId = CookieSessionManager(applicationContext).getUserIdFromSessionToken()
+                    if (currentUserId != null && currentUserId != targetUserId) {
+                        Log.w(TAG, "Dropping remote timer sync: intended for $targetUserId, phone is logged in as $currentUserId")
+                        return
+                    }
+                }
+
+                Log.i(TAG, "Received remote timer sync via FCM: action=$action, accumulated=$accumulatedSeconds, origin=$originDeviceId")
+                TimerForegroundService.dispatchRemoteSync(
+                    context = applicationContext,
+                    action = action,
+                    accumulatedSeconds = accumulatedSeconds,
+                    updatedAt = updatedAt,
+                    originDeviceId = originDeviceId
+                )
+                return
+            }
+
             if (eventType == "workspace:refresh" || eventType == "sync:refresh") {
                 Log.i(TAG, "Received workspace:refresh trigger via FCM data. Enqueuing sync.")
                 OfflineSyncWorker.enqueueImmediateSync(applicationContext)

@@ -31,4 +31,31 @@ class FallbackJavaScriptInterface(
     fun acknowledgePendingReview(idempotencyKey: String) {
         dispatcher.acknowledgePendingReview(idempotencyKey)
     }
+
+    @JavascriptInterface
+    fun onRemoteTimerSync(action: String, accumulatedSeconds: Long, updatedAt: Long, originDeviceId: String) {
+        com.scholarpulse.app.services.TimerForegroundService.dispatchRemoteSync(
+            context = dispatcher.context,
+            action = action,
+            accumulatedSeconds = accumulatedSeconds,
+            updatedAt = updatedAt,
+            originDeviceId = originDeviceId
+        )
+    }
+
+    @JavascriptInterface
+    fun onRemoteTimerSyncJson(jsonPayload: String) {
+        try {
+            val json = org.json.JSONObject(jsonPayload)
+            com.scholarpulse.app.services.TimerForegroundService.dispatchRemoteSync(
+                context = dispatcher.context,
+                action = json.optString("action", "PAUSE"),
+                accumulatedSeconds = json.optLong("accumulatedSeconds", json.optLong("remainingMs", -1L)),
+                updatedAt = json.optLong("updatedAt", System.currentTimeMillis()),
+                originDeviceId = json.optString("originDeviceId", "")
+            )
+        } catch (e: Exception) {
+            Log.w("FallbackBridge", "Failed to parse onRemoteTimerSyncJson", e)
+        }
+    }
 }

@@ -122,6 +122,15 @@ data class TimerStatusResult(
     val lastResumedAt: String? = null
 )
 
+@Serializable
+data class RemoteTimerSyncParams(
+    val action: String = "PAUSE",
+    val accumulatedSeconds: Long? = null,
+    val remainingMs: Long? = null,
+    val updatedAt: Long? = null,
+    val originDeviceId: String? = null
+)
+
 object BridgeErrorCodes {
     const val E_UNAUTHORIZED_ORIGIN = "E_UNAUTHORIZED_ORIGIN"
     const val E_INVALID_PARAMS = "E_INVALID_PARAMS"
