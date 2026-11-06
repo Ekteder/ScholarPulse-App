@@ -20,15 +20,16 @@
 > 5. **Update this file at every milestone**: The Main Agent edits this file as each task or phase concludes, logging exact test results and file diffs.
 
 ### Active Phase & Resume Pointer
-- **Current Active Phase**: **Background Notification Finish & Tombstone Reconciliation (Option C/A Hybrid) — `[x] IMPLEMENTED & VERIFIED`**
-- **Current Active Task**: Pure background notification finish with Room persistence, SharedPreferences tombstoning, WorkManager expedited sync, and anti-resurrection bridge guardrails.
+- **Current Active Phase**: **Background Notification Finish & Cross-Device Real-Time Sync — `[x] FULLY VERIFIED & RELEASED`**
+- **Current Active Task**: Instant cross-device timer termination and auto-clear via `/api/sync/batch` and SSE `timer:delete` broadcast.
 - **Milestones Verified**:
   1. **Background Native Sovereignty**: When Finish [ ⏹ ] is tapped in the notification shade while the screen is off or the WebView is frozen, [`TimerActionReceiver.kt`](file:///media/sanglap/Movies/scholarpulsev2/app/app/src/main/java/com/scholarpulse/app/services/TimerActionReceiver.kt) snapshots the timer state, writes an anti-resurrection tombstone to [`TimerStateStore.kt`](file:///media/sanglap/Movies/scholarpulsev2/app/app/src/main/java/com/scholarpulse/app/services/TimerStateStore.kt), enqueues an `OfflineMutationEntity` (`actionType = "SESSION"`) to Room SQLite, and triggers [`OfflineSyncWorker.enqueueImmediateSync`](file:///media/sanglap/Movies/scholarpulsev2/app/app/src/main/java/com/scholarpulse/app/workers/OfflineSyncWorker.kt).
   2. **Eliminated `ForegroundServiceDidNotStartInTimeException` Crash Trap**: Removed dangerous `startForegroundService()` call in [`TimerActionReceiver.kt`](file:///media/sanglap/Movies/scholarpulsev2/app/app/src/main/java/com/scholarpulse/app/services/TimerActionReceiver.kt) for terminal actions. Taps on [ ⏹ ] cleanly finish the service on the Main thread without re-spawning foreground notifications.
   3. **Synchronous Anti-Resurrection Guardrail**: [`NativeBridgeDispatcher.kt`](file:///media/sanglap/Movies/scholarpulsev2/app/app/src/main/java/com/scholarpulse/app/bridge/NativeBridgeDispatcher.kt) checks `timerStateStore.isSessionTombstoned(...)` on every `timer.start` call. If React attempts to resurrect a session that was finished in the notification, Android rejects it with `E_SESSION_TOMBSTONED` and re-dispatches `timer.actionTriggered (finish)`.
-  4. **Synchronous Bridge Sync State Method**: Added `@JavascriptInterface fun getNativeTimerSyncState(): String` and `acknowledgePendingReview(idempotencyKey)` on [`FallbackJavaScriptInterface.kt`](file:///media/sanglap/Movies/scholarpulsev2/app/app/src/main/java/com/scholarpulse/app/bridge/FallbackJavaScriptInterface.kt) allowing 0ms pull on app resume.
-  5. **Empirical Verification**: All unit tests in [`TimerTombstoneSyncTest.kt`](file:///media/sanglap/Movies/scholarpulsev2/app/app/src/test/java/com/scholarpulse/app/TimerTombstoneSyncTest.kt) passed (`BUILD SUCCESSFUL in 10s`). Debug APK compiled cleanly (`BUILD SUCCESSFUL in 2m 44s`).
-- **Blocker Status**: None. Native layer ready for web client reconciliation integration.
+  4. **Multi-Channel Bridge Identifiers**: Registered `FallbackJavaScriptInterface` on `AndroidBridge`, `__ScholarPulseNativeBridge`, `ScholarPulseBridge`, and `Android`.
+  5. **Instant Cross-Device Auto-Clear**: `/api/sync/batch` detects completed timer study sessions from native background sync, auto-clears `active_timer_sessions` in PostgreSQL, and broadcasts `timer:delete` via SSE across all active devices in real time (Web commit `7c40ad6`).
+  6. **Empirical Verification**: All unit tests in [`TimerTombstoneSyncTest.kt`](file:///media/sanglap/Movies/scholarpulsev2/app/app/src/test/java/com/scholarpulse/app/TimerTombstoneSyncTest.kt) passed (`BUILD SUCCESSFUL in 10s`). Live device verified on Xiaomi Redmi 9 (`f780dc8b0404`).
+- **Blocker Status**: None. Background finish, anti-resurrection, and cross-device sync are 100% operational.
 
 ---
 
