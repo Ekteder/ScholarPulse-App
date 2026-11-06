@@ -98,8 +98,13 @@ class TimerActionReceiver : BroadcastReceiver() {
                                 db.offlineMutationDao().enqueueMutation(mutation)
                                 Log.i(TAG, "Enqueued offline mutation for completed study session: ${sessionItem.idempotencyKey}")
 
-                                // 3. Enqueue immediate WorkManager background sync
+                                // 3. Enqueue immediate WorkManager background sync & trigger opportunistic fast-path
                                 OfflineSyncWorker.enqueueImmediateSync(context)
+                                try {
+                                    OfflineSyncWorker.performSync(context)
+                                } catch (syncErr: Exception) {
+                                    Log.d(TAG, "Direct opportunistic sync deferred to WorkManager: ${syncErr.message}")
+                                }
                             } catch (dbErr: Exception) {
                                 Log.e(TAG, "Failed to enqueue offline session mutation in Room", dbErr)
                             }
@@ -201,6 +206,11 @@ class TimerActionReceiver : BroadcastReceiver() {
                         db.offlineMutationDao().enqueueMutation(mutation)
                         Log.i(TAG, "Enqueued active timer mutation ($action) to Room: $key")
                         OfflineSyncWorker.enqueueImmediateSync(context)
+                        try {
+                            OfflineSyncWorker.performSync(context)
+                        } catch (syncErr: Exception) {
+                            Log.d(TAG, "Direct opportunistic sync deferred to WorkManager: ${syncErr.message}")
+                        }
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to persist timer state mutation ($action)", e)
