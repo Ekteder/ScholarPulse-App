@@ -4,6 +4,12 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
+import android.util.Log
+import com.google.firebase.messaging.FirebaseMessaging
+import com.scholarpulse.app.services.AppFirebaseMessagingService
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class ScholarPulseApp : Application() {
 
@@ -25,16 +31,28 @@ class ScholarPulseApp : Application() {
 
     private fun subscribeToGlobalAnnouncements() {
         try {
-            com.google.firebase.messaging.FirebaseMessaging.getInstance().subscribeToTopic("announcements_global")
+            val fcm = FirebaseMessaging.getInstance()
+            fcm.subscribeToTopic("announcements_global")
                 .addOnCompleteListener { task ->
                     if (task.isSuccessful) {
-                        android.util.Log.i("ScholarPulseApp", "Subscribed to announcements_global topic successfully")
+                        Log.i("ScholarPulseApp", "Subscribed to announcements_global topic successfully")
                     } else {
-                        android.util.Log.w("ScholarPulseApp", "Failed to subscribe to announcements_global", task.exception)
+                        Log.w("ScholarPulseApp", "Failed to subscribe to announcements_global", task.exception)
                     }
                 }
+
+            fcm.token.addOnCompleteListener { task ->
+                if (task.isSuccessful && !task.result.isNullOrBlank()) {
+                    val token = task.result
+                    AppFirebaseMessagingService.cacheToken(this, token)
+                    Log.i("ScholarPulseApp", "Fetched and cached FCM token on startup: $token")
+                    CoroutineScope(Dispatchers.IO).launch {
+                        AppFirebaseMessagingService.registerDeviceToken(this@ScholarPulseApp, token)
+                    }
+                }
+            }
         } catch (e: Exception) {
-            android.util.Log.e("ScholarPulseApp", "Error subscribing to FCM topic", e)
+            Log.e("ScholarPulseApp", "Error subscribing to FCM topic or fetching token", e)
         }
     }
 
