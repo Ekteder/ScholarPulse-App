@@ -83,7 +83,7 @@ class TimerActionReceiver : BroadcastReceiver() {
                                 topic = snapshot.topic.ifBlank { "General Study" },
                                 notes = snapshot.notes,
                                 productivityRating = 4,
-                                sessionType = if (snapshot.mode == TimerMode.POMODORO) "timer" else "manual"
+                                sessionType = "timer"
                             )
 
                             try {

@@ -412,7 +412,7 @@ class NativeBridgeDispatcher(
                     topic = service.topic.ifBlank { "General Study" },
                     notes = params?.notes ?: service.notes,
                     productivityRating = params?.productivityRating ?: 4,
-                    sessionType = if (service.mode == TimerMode.POMODORO) "timer" else "manual"
+                    sessionType = "timer"
                 )
 
                 scope.launch(Dispatchers.IO) {
