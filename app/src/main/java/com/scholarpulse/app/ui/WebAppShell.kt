@@ -159,12 +159,14 @@ fun WebAppShell(
 
                     val activeLoadedUrl = java.util.concurrent.atomic.AtomicReference(targetUrl)
 
-                    // Dual-channel fallback JavascriptInterface
+                    // Multi-channel fallback JavascriptInterface (supports all standard window bridge identifiers)
                     val fallbackInterface = FallbackJavaScriptInterface(bridgeDispatcher) {
                         activeLoadedUrl.get()
                     }
+                    addJavascriptInterface(fallbackInterface, "AndroidBridge")
                     addJavascriptInterface(fallbackInterface, "__ScholarPulseNativeBridge")
                     addJavascriptInterface(fallbackInterface, "ScholarPulseBridge")
+                    addJavascriptInterface(fallbackInterface, "Android")
 
                     bridgeDispatcher.attachWebView(this)
 
