@@ -52,7 +52,8 @@ class FallbackJavaScriptInterface(
                 action = json.optString("action", "PAUSE"),
                 accumulatedSeconds = json.optLong("accumulatedSeconds", json.optLong("remainingMs", -1L)),
                 updatedAt = json.optLong("updatedAt", System.currentTimeMillis()),
-                originDeviceId = json.optString("originDeviceId", "")
+                originDeviceId = json.optString("originDeviceId", ""),
+                expectedIdempotencyKey = json.optString("idempotencyKey", "")
             )
         } catch (e: Exception) {
             Log.w("FallbackBridge", "Failed to parse onRemoteTimerSyncJson", e)

@@ -128,7 +128,8 @@ data class RemoteTimerSyncParams(
     val accumulatedSeconds: Long? = null,
     val remainingMs: Long? = null,
     val updatedAt: Long? = null,
-    val originDeviceId: String? = null
+    val originDeviceId: String? = null,
+    val idempotencyKey: String? = null
 )
 
 object BridgeErrorCodes {

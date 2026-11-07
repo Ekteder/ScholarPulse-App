@@ -158,6 +158,7 @@ class AppFirebaseMessagingService : FirebaseMessagingService() {
                 val accumulatedSeconds = data["accumulatedSeconds"]?.toLongOrNull() ?: -1L
                 val updatedAt = data["updatedAt"]?.toLongOrNull() ?: System.currentTimeMillis()
                 val originDeviceId = data["originDeviceId"] ?: data["clientDeviceId"] ?: ""
+                val expectedIdempotencyKey = data["idempotencyKey"] ?: data["expectedIdempotencyKey"] ?: ""
                 val targetUserId = data["userId"]
 
                 // User match guard
@@ -169,13 +170,14 @@ class AppFirebaseMessagingService : FirebaseMessagingService() {
                     }
                 }
 
-                Log.i(TAG, "Received remote timer sync via FCM: action=$action, accumulated=$accumulatedSeconds, origin=$originDeviceId")
+                Log.i(TAG, "Received remote timer sync via FCM: action=$action, accumulated=$accumulatedSeconds, key=$expectedIdempotencyKey, origin=$originDeviceId")
                 TimerForegroundService.dispatchRemoteSync(
                     context = applicationContext,
                     action = action,
                     accumulatedSeconds = accumulatedSeconds,
                     updatedAt = updatedAt,
-                    originDeviceId = originDeviceId
+                    originDeviceId = originDeviceId,
+                    expectedIdempotencyKey = expectedIdempotencyKey
                 )
                 return
             }

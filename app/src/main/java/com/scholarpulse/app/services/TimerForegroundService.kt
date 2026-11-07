@@ -120,17 +120,28 @@ class TimerForegroundService : Service() {
             action: String,
             accumulatedSeconds: Long = -1L,
             updatedAt: Long = System.currentTimeMillis(),
-            originDeviceId: String = ""
+            originDeviceId: String = "",
+            expectedIdempotencyKey: String = ""
         ) {
+            val isStart = action.equals("START", ignoreCase = true)
+            val activeInstance = instance
+            if (!isStart && (activeInstance == null || activeInstance.status == TimerStatus.IDLE)) {
+                Log.d(TAG, "Ignoring remote sync '$action': no active foreground timer session on device.")
+                return
+            }
+
             val intent = Intent(context, TimerForegroundService::class.java).apply {
                 this.action = ACTION_REMOTE_SYNC
                 putExtra(EXTRA_REMOTE_ACTION, action)
                 putExtra(EXTRA_ACCUMULATED_SECONDS, accumulatedSeconds)
                 putExtra(EXTRA_UPDATED_AT, updatedAt)
                 putExtra(EXTRA_ORIGIN_DEVICE_ID, originDeviceId)
+                if (expectedIdempotencyKey.isNotBlank()) {
+                    putExtra(EXTRA_IDEMPOTENCY_KEY, expectedIdempotencyKey)
+                }
             }
             try {
-                if (action.equals("START", ignoreCase = true) || action.equals("RESUME", ignoreCase = true)) {
+                if (isStart) {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         context.startForegroundService(intent)
                     } else {
@@ -225,11 +236,24 @@ class TimerForegroundService : Service() {
     }
 
     private fun handleRemoteSync(intent: Intent?) {
-        if (intent == null) return
-        val remoteAction = intent.getStringExtra(EXTRA_REMOTE_ACTION)?.uppercase() ?: return
+        if (intent == null) {
+            if (status == TimerStatus.IDLE) stopSelf()
+            return
+        }
+        val remoteAction = intent.getStringExtra(EXTRA_REMOTE_ACTION)?.uppercase() ?: run {
+            if (status == TimerStatus.IDLE) stopSelf()
+            return
+        }
+        if (remoteAction != "START" && status == TimerStatus.IDLE) {
+            Log.d(TAG, "handleRemoteSync($remoteAction): service is already IDLE; stopping self cleanly.")
+            stopSelf()
+            return
+        }
+
         val updatedAt = intent.getLongExtra(EXTRA_UPDATED_AT, 0L)
         val originDeviceId = intent.getStringExtra(EXTRA_ORIGIN_DEVICE_ID).orEmpty()
         val remoteAccumulated = intent.getLongExtra(EXTRA_ACCUMULATED_SECONDS, -1L)
+        val expectedKey = intent.getStringExtra(EXTRA_IDEMPOTENCY_KEY).orEmpty()
 
         // 1. Echo suppression: if action originated from this local phone, drop
         val localDeviceId = try {
@@ -241,7 +265,13 @@ class TimerForegroundService : Service() {
             return
         }
 
-        // 2. Monotonic ordering: drop stale or duplicate events
+        // 2. Session identity guard: prevent delayed background cleanup of Timer A from affecting newly started Timer B
+        if (remoteAction != "START" && expectedKey.isNotBlank() && idempotencyKey.isNotBlank() && expectedKey != idempotencyKey) {
+            Log.d(TAG, "Idempotency guard: dropping stale remote $remoteAction for '$expectedKey' (active='$idempotencyKey')")
+            return
+        }
+
+        // 3. Monotonic ordering: drop stale or duplicate events within the same session
         if (updatedAt > 0L && updatedAt <= lastAppliedUpdatedAt) {
             Log.d(TAG, "Ordering guard: dropping remote sync with stale timestamp $updatedAt <= $lastAppliedUpdatedAt")
             return
@@ -250,7 +280,7 @@ class TimerForegroundService : Service() {
             lastAppliedUpdatedAt = updatedAt
         }
 
-        Log.i(TAG, "Applying remote timer transition: action=$remoteAction, accumulated=$remoteAccumulated, updatedAt=$updatedAt")
+        Log.i(TAG, "Applying remote timer transition: action=$remoteAction, accumulated=$remoteAccumulated, key=$expectedKey, updatedAt=$updatedAt")
 
         when (remoteAction) {
             "PAUSE" -> {
@@ -273,6 +303,8 @@ class TimerForegroundService : Service() {
             "STOP", "FINISH", "DISCARD", "DELETE" -> {
                 if (status != TimerStatus.IDLE) {
                     discardSession()
+                } else {
+                    stopSelf()
                 }
             }
         }
@@ -314,6 +346,7 @@ class TimerForegroundService : Service() {
         topic = intent?.getStringExtra(EXTRA_TOPIC)?.ifBlank { "Focused Study" } ?: "Focused Study"
         notes = intent?.getStringExtra(EXTRA_NOTES) ?: ""
         idempotencyKey = newIdempotencyKey
+        lastAppliedUpdatedAt = 0L
 
         val modeStr = intent?.getStringExtra(EXTRA_MODE) ?: "pomodoro"
         mode = if (modeStr.equals("stopwatch", ignoreCase = true)) {

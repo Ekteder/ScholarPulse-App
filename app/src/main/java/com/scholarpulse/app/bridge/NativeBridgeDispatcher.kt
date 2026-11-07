@@ -405,7 +405,8 @@ class NativeBridgeDispatcher(
                 action = params.action,
                 accumulatedSeconds = accumulated,
                 updatedAt = params.updatedAt ?: System.currentTimeMillis(),
-                originDeviceId = params.originDeviceId.orEmpty()
+                originDeviceId = params.originDeviceId.orEmpty(),
+                expectedIdempotencyKey = params.idempotencyKey.orEmpty()
             )
         }
 
