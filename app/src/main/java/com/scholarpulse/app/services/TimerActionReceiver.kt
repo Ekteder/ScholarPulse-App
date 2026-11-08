@@ -57,14 +57,24 @@ class TimerActionReceiver : BroadcastReceiver() {
             val pendingResult = goAsync()
             val stateStore = TimerStateStore(context)
 
+            // 1. Capture snapshot in-memory synchronously BEFORE stopping the service
+            val snapshot = service?.captureSnapshot()
+
+            // 2. IMMEDIATELY dismiss notification & stop foreground service on Main thread (0ms perceived latency!)
+            if (service != null) {
+                service.finishSession()
+            } else {
+                context.stopService(Intent(context, TimerForegroundService::class.java))
+            }
+
+            // 3. Complete persistence, offline queueing, and cloud sync asynchronously in the background
             CoroutineScope(Dispatchers.IO).launch {
                 try {
-                    val snapshot = service?.captureSnapshot()
                     if (snapshot != null) {
                         val duration = snapshot.elapsedSeconds
                         val key = snapshot.idempotencyKey.ifBlank { "timer_${System.currentTimeMillis()}" }
 
-                        // 1. Mark tombstone natively so WebView can NEVER resurrect this timer
+                        // a. Mark tombstone natively so WebView can NEVER resurrect this timer
                         stateStore.markSessionFinishedNatively(
                             idempotencyKey = key,
                             subjectId = snapshot.subjectId,
@@ -72,7 +82,7 @@ class TimerActionReceiver : BroadcastReceiver() {
                             durationSeconds = duration
                         )
 
-                        // 2. If session duration is >= 30 seconds, persist offline mutation to Room
+                        // b. If session duration is >= 30 seconds, persist offline mutation to Room
                         if (duration >= 30) {
                             val sessionItem = StudySessionBatchItem(
                                 clientSessionId = key,
@@ -98,7 +108,7 @@ class TimerActionReceiver : BroadcastReceiver() {
                                 db.offlineMutationDao().enqueueMutation(mutation)
                                 Log.i(TAG, "Enqueued offline mutation for completed study session: ${sessionItem.idempotencyKey}")
 
-                                // 3. Enqueue immediate WorkManager background sync & trigger opportunistic fast-path
+                                // c. Enqueue immediate WorkManager background sync & trigger opportunistic fast-path
                                 OfflineSyncWorker.enqueueImmediateSync(context)
                                 try {
                                     OfflineSyncWorker.performSync(context)
@@ -113,16 +123,7 @@ class TimerActionReceiver : BroadcastReceiver() {
                         }
                     }
 
-                    // 4. Terminate foreground service cleanly on Main thread without startForegroundService()
-                    withContext(Dispatchers.Main) {
-                        if (service != null) {
-                            service.finishSession()
-                        } else {
-                            context.stopService(Intent(context, TimerForegroundService::class.java))
-                        }
-                    }
-
-                    // 5. Best-effort dispatch event to WebView if awake
+                    // d. Best-effort dispatch event to WebView if awake
                     // Send action = "reconcile" with alreadySaved = true so the WebView clears local timer state
                     // and refreshes workspace WITHOUT re-executing finishTimerSession() and creating a duplicate session.
                     val activeBridge = TimerForegroundService.dispatcher ?: NativeBridgeDispatcher.activeDispatcher
@@ -138,7 +139,7 @@ class TimerActionReceiver : BroadcastReceiver() {
                     activeBridge?.sendEvent("workspace.refresh", null)
                     Log.d(TAG, "Dispatched timer.actionTriggered (reconcile) to bridge")
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error handling notification finish action", e)
+                    Log.e(TAG, "Error handling notification finish action in background", e)
                 } finally {
                     pendingResult.finish()
                 }
