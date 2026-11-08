@@ -164,8 +164,8 @@ class AppFirebaseMessagingService : FirebaseMessagingService() {
                 // User match guard
                 if (!targetUserId.isNullOrBlank() && targetUserId != "all") {
                     val currentUserId = CookieSessionManager(applicationContext).getUserIdFromSessionToken()
-                    if (currentUserId != null && currentUserId != targetUserId) {
-                        Log.w(TAG, "Dropping remote timer sync: intended for $targetUserId, phone is logged in as $currentUserId")
+                    if (currentUserId == null || currentUserId != targetUserId) {
+                        Log.w(TAG, "Dropping remote timer sync: intended for $targetUserId, phone is logged in as ${currentUserId ?: "null (logged out)"}")
                         return
                     }
                 }

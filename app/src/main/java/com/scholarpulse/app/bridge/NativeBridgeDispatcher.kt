@@ -436,7 +436,11 @@ class NativeBridgeDispatcher(
 
         if (service != null) {
             if (!isDiscard && finalSeconds > 0) {
-                val sId = "session_${System.currentTimeMillis()}_${java.util.UUID.randomUUID().toString().take(8)}"
+                val sId = if (service.idempotencyKey.isNotBlank()) {
+                    service.idempotencyKey
+                } else {
+                    "session_${System.currentTimeMillis()}_${java.util.UUID.randomUUID().toString().take(8)}"
+                }
                 sessionId = sId
                 val sessionItem = StudySessionBatchItem(
                     clientSessionId = sId,

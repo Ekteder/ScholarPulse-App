@@ -76,7 +76,7 @@ class TimerActionReceiver : BroadcastReceiver() {
                         if (duration >= 30) {
                             val sessionItem = StudySessionBatchItem(
                                 clientSessionId = key,
-                                idempotencyKey = "${key}_final",
+                                idempotencyKey = key,
                                 subjectId = snapshot.subjectId.ifBlank { "00000000-0000-0000-0000-000000000000" },
                                 startTime = snapshot.startedAtIso,
                                 endTime = Instant.now().toString(),

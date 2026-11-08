@@ -101,20 +101,32 @@ interface RevisionDao {
 
 @Dao
 interface OfflineMutationDao {
-    @Query("SELECT * FROM offline_mutations WHERE status IN ('PENDING', 'FAILED') ORDER BY createdAtMs ASC")
-    suspend fun getPendingMutations(): List<OfflineMutationEntity>
+    @Query("SELECT * FROM offline_mutations WHERE status IN ('PENDING', 'FAILED') OR (status = 'SYNCING' AND updatedAtMs < :staleThresholdMs) ORDER BY createdAtMs ASC")
+    suspend fun getPendingAndStaleMutations(staleThresholdMs: Long): List<OfflineMutationEntity>
 
-    @Query("SELECT * FROM offline_mutations WHERE status IN ('PENDING', 'FAILED') ORDER BY createdAtMs ASC")
-    fun observePendingMutations(): Flow<List<OfflineMutationEntity>>
+    suspend fun getPendingMutations(staleThresholdMs: Long = System.currentTimeMillis() - 300_000L): List<OfflineMutationEntity> =
+        getPendingAndStaleMutations(staleThresholdMs)
+
+    @Query("SELECT * FROM offline_mutations WHERE status IN ('PENDING', 'FAILED') OR (status = 'SYNCING' AND updatedAtMs < :staleThresholdMs) ORDER BY createdAtMs ASC")
+    fun observePendingAndStaleMutations(staleThresholdMs: Long): Flow<List<OfflineMutationEntity>>
+
+    fun observePendingMutations(staleThresholdMs: Long = System.currentTimeMillis() - 300_000L): Flow<List<OfflineMutationEntity>> =
+        observePendingAndStaleMutations(staleThresholdMs)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun enqueueMutation(mutation: OfflineMutationEntity)
 
-    @Query("UPDATE offline_mutations SET status = :status, retryCount = retryCount + 1, errorMessage = :error WHERE id = :id")
-    suspend fun updateStatus(id: String, status: String, error: String? = null)
+    @Query("UPDATE offline_mutations SET status = :status, retryCount = retryCount + 1, errorMessage = :error, updatedAtMs = :nowMs WHERE id = :id")
+    suspend fun updateStatusWithTimestamp(id: String, status: String, error: String?, nowMs: Long)
 
-    @Query("UPDATE offline_mutations SET status = :status WHERE id IN (:ids)")
-    suspend fun markStatuses(ids: List<String>, status: String)
+    suspend fun updateStatus(id: String, status: String, error: String? = null, nowMs: Long = System.currentTimeMillis()) =
+        updateStatusWithTimestamp(id, status, error, nowMs)
+
+    @Query("UPDATE offline_mutations SET status = :status, updatedAtMs = :nowMs WHERE id IN (:ids)")
+    suspend fun markStatusesWithTimestamp(ids: List<String>, status: String, nowMs: Long)
+
+    suspend fun markStatuses(ids: List<String>, status: String, nowMs: Long = System.currentTimeMillis()) =
+        markStatusesWithTimestamp(ids, status, nowMs)
 
     @Query("DELETE FROM offline_mutations WHERE id = :id")
     suspend fun deleteMutation(id: String)

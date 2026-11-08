@@ -90,5 +90,6 @@ data class OfflineMutationEntity(
     val createdAtMs: Long = System.currentTimeMillis(),
     val retryCount: Int = 0,
     val status: String = "PENDING",
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val updatedAtMs: Long = System.currentTimeMillis()
 )

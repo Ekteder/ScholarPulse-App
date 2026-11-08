@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [
@@ -14,7 +16,7 @@ import androidx.room.RoomDatabase
         RevisionRecordEntity::class,
         OfflineMutationEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class ScholarPulseDatabase : RoomDatabase() {
@@ -29,6 +31,13 @@ abstract class ScholarPulseDatabase : RoomDatabase() {
     companion object {
         private const val DATABASE_NAME = "scholarpulse.db"
 
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE offline_mutations ADD COLUMN updatedAtMs INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("UPDATE offline_mutations SET updatedAtMs = createdAtMs")
+            }
+        }
+
         @Volatile
         private var instance: ScholarPulseDatabase? = null
 
@@ -39,6 +48,7 @@ abstract class ScholarPulseDatabase : RoomDatabase() {
                     ScholarPulseDatabase::class.java,
                     DATABASE_NAME
                 )
+                    .addMigrations(MIGRATION_1_2)
                     .fallbackToDestructiveMigration()
                     .build()
                     .also { instance = it }

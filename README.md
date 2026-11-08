@@ -33,9 +33,7 @@ ScholarPulse is a modern academic productivity and study-tracking platform for s
 │   │   └── res/                # XML themes, launcher icons, network security
 │   └── build.gradle.kts        # Module configuration & dependencies
 ├── gradle/                     # Version catalog (libs.versions.toml) & wrapper
-├── ANDROID_ARCH.md             # Complete architecture blueprint
-├── BRIDGE_API.md               # Web-to-Native bidirectional RPC contract
-├── PROGRESS.md                 # Single source of truth for build and test state
+├── README.md                   # Application documentation & build instructions
 └── settings.gradle.kts         # Gradle project settings
 ```
 

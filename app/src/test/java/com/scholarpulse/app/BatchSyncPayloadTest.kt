@@ -2,9 +2,12 @@ package com.scholarpulse.app
 
 import com.scholarpulse.app.workers.ActiveTimerBatchItem
 import com.scholarpulse.app.workers.BatchSyncPayload
+import com.scholarpulse.app.workers.BatchSyncResponse
+import com.scholarpulse.app.workers.RejectedItem
 import com.scholarpulse.app.workers.RevisionBatchItem
 import com.scholarpulse.app.workers.StudySessionBatchItem
 import com.scholarpulse.app.workers.TaskBatchItem
+import com.scholarpulse.app.workers.TimerReconciliation
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -187,5 +190,83 @@ class BatchSyncPayloadTest {
         assertTrue(parsedJson.containsKey("studySessions"))
         assertTrue(parsedJson.containsKey("tasks"))
         assertTrue(parsedJson.containsKey("revisionRecords"))
+    }
+
+    @Test
+    fun testProtocol2BatchSyncResponseDeserialization() {
+        val serverJson = """
+            {
+              "success": true,
+              "protocol": 2,
+              "synced": {
+                "studySessions": { "inserted": 2, "duplicates": 0 },
+                "tasks": { "inserted": 1, "updated": 0 },
+                "revisionRecords": { "upserted": 1 },
+                "activeTimer": { "updated": false, "cleared": true }
+              },
+              "accepted": [
+                "session_uuid_101",
+                "task_uuid_202",
+                "topic_abc:flashcard"
+              ],
+              "rejected": [
+                {
+                  "key": "session_uuid_orphan",
+                  "reason": "23503: insert or update violates foreign key constraint"
+                }
+              ],
+              "timer": {
+                "status": "server_ahead",
+                "reason": null,
+                "serverTimer": {
+                  "subjectId": "sub-1",
+                  "topic": "Physics",
+                  "accumulatedSeconds": 1200,
+                  "status": "running"
+                }
+              }
+            }
+        """.trimIndent()
+
+        val response = json.decodeFromString<BatchSyncResponse>(serverJson)
+
+        assertTrue(response.success)
+        assertEquals(2, response.protocol)
+        assertEquals(3, response.accepted.size)
+        assertTrue(response.accepted.contains("session_uuid_101"))
+        assertTrue(response.accepted.contains("task_uuid_202"))
+        assertTrue(response.accepted.contains("topic_abc:flashcard"))
+
+        assertEquals(1, response.rejected.size)
+        assertEquals("session_uuid_orphan", response.rejected[0].key)
+        assertTrue(response.rejected[0].reason.contains("23503"))
+
+        assertNotNull(response.timer)
+        assertEquals("server_ahead", response.timer?.status)
+        assertNotNull(response.timer?.serverTimer)
+    }
+
+    @Test
+    fun testProtocol2BatchSyncResponseCleanSuccess() {
+        val serverJson = """
+            {
+              "success": true,
+              "protocol": 2,
+              "accepted": ["session_1", "session_2"],
+              "rejected": [],
+              "timer": {
+                "status": "applied"
+              }
+            }
+        """.trimIndent()
+
+        val response = json.decodeFromString<BatchSyncResponse>(serverJson)
+
+        assertTrue(response.success)
+        assertEquals(2, response.protocol)
+        assertEquals(2, response.accepted.size)
+        assertTrue(response.rejected.isEmpty())
+        assertEquals("applied", response.timer?.status)
+        assertEquals(null, response.timer?.serverTimer)
     }
 }

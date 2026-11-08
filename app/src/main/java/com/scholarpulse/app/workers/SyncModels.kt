@@ -1,6 +1,7 @@
 package com.scholarpulse.app.workers
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 
 @Serializable
 data class StudySessionBatchItem(
@@ -72,4 +73,26 @@ data class BatchSyncPayload(
     val tasks: List<TaskBatchItem> = emptyList(),
     val revisionRecords: List<RevisionBatchItem> = emptyList(),
     val activeTimer: ActiveTimerBatchItem? = null
+)
+
+@Serializable
+data class RejectedItem(
+    val key: String,
+    val reason: String
+)
+
+@Serializable
+data class TimerReconciliation(
+    val status: String = "none",
+    val reason: String? = null,
+    val serverTimer: JsonElement? = null
+)
+
+@Serializable
+data class BatchSyncResponse(
+    val success: Boolean = false,
+    val protocol: Int? = null,
+    val accepted: List<String> = emptyList(),
+    val rejected: List<RejectedItem> = emptyList(),
+    val timer: TimerReconciliation? = null
 )
