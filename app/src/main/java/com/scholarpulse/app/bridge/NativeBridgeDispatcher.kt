@@ -236,11 +236,13 @@ class NativeBridgeDispatcher(
         if (timerStateStore.isSessionTombstoned(params.idempotencyKey)) {
             Log.w(tag, "Refusing to start/resurrect tombstoned timer session: ${params.idempotencyKey}")
             val eventPayload = buildJsonObject {
-                put("action", "finish")
+                put("action", "reconcile")
                 put("source", "native_tombstone")
+                put("alreadySaved", true)
                 put("idempotencyKey", params.idempotencyKey)
             }
             sendEvent("timer.actionTriggered", eventPayload)
+            sendEvent("workspace.refresh", null)
 
             sendResponse(
                 BridgeResponse(

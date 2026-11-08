@@ -123,16 +123,20 @@ class TimerActionReceiver : BroadcastReceiver() {
                     }
 
                     // 5. Best-effort dispatch event to WebView if awake
+                    // Send action = "reconcile" with alreadySaved = true so the WebView clears local timer state
+                    // and refreshes workspace WITHOUT re-executing finishTimerSession() and creating a duplicate session.
                     val activeBridge = TimerForegroundService.dispatcher ?: NativeBridgeDispatcher.activeDispatcher
                     val eventPayload = buildJsonObject {
-                        put("action", "finish")
+                        put("action", "reconcile")
                         put("source", "notification")
+                        put("alreadySaved", true)
                         if (snapshot != null) {
                             put("idempotencyKey", snapshot.idempotencyKey)
                         }
                     }
                     activeBridge?.sendEvent("timer.actionTriggered", eventPayload)
-                    Log.d(TAG, "Dispatched timer.actionTriggered (finish) to bridge")
+                    activeBridge?.sendEvent("workspace.refresh", null)
+                    Log.d(TAG, "Dispatched timer.actionTriggered (reconcile) to bridge")
                 } catch (e: Exception) {
                     Log.e(TAG, "Error handling notification finish action", e)
                 } finally {
